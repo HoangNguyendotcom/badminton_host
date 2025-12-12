@@ -45,7 +45,7 @@ export function PlayerList({ players, moveOptions, onAssign, onToggleActive, onE
                   <span className="muted">{p.isActive ? "Hoạt động" : "Nghỉ"}</span>
                 </td>
                 <td>
-                  <span className="muted">{p.team ? `Ở ${p.team}` : "Đang chờ"}</span>
+                  <span className="muted">{p.team ? `${p.team}` : "Đang chờ"}</span>
                 </td>
                 <td>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
