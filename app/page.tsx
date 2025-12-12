@@ -47,6 +47,14 @@ export default function Page() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [split, setSplit] = useState<SplitResult | null>(null);
   const [teamCount, setTeamCount] = useState<number>(2);
+  const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    gender: "male" as "male" | "female",
+    skill: 5,
+    isActive: true,
+    team: null as string | null
+  });
 
   // Load last session if available
   useEffect(() => {
@@ -139,6 +147,41 @@ export default function Page() {
       return updated;
     });
   };
+
+  const openEditPlayer = (player: Player) => {
+    setEditingPlayer(player);
+    setEditForm({
+      name: player.name,
+      gender: player.gender,
+      skill: player.skillLevel,
+      isActive: player.isActive,
+      team: player.team
+    });
+  };
+
+  const submitEditPlayer = () => {
+    if (!editingPlayer) return;
+    const normalizedSkill = Math.min(10, Math.max(1, Number(editForm.skill) || 1));
+    setPlayers((prev) => {
+      const updated = prev.map((p) =>
+        p.id === editingPlayer.id
+          ? {
+              ...p,
+              name: editForm.name.trim() || p.name,
+              gender: editForm.gender,
+              skillLevel: normalizedSkill,
+              isActive: editForm.isActive,
+              team: editForm.team
+            }
+          : p
+      );
+      setSplit(buildViewFromPlayers(updated, teamCount));
+      return updated;
+    });
+    setEditingPlayer(null);
+  };
+
+  const closeEdit = () => setEditingPlayer(null);
 
   return (
     <main style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 16px", display: "grid", gap: 16 }}>
@@ -240,6 +283,7 @@ export default function Page() {
         moveOptions={computedSplit.teams.map((t) => t.name)}
         onAssign={handleMovePlayer}
         onToggleActive={handleToggleActive}
+        onEdit={openEditPlayer}
         onRemove={handleRemove}
       />
 
@@ -256,6 +300,96 @@ export default function Page() {
           />
         ))}
       </div>
+
+      {editingPlayer && (
+        <div className="modal-backdrop" onClick={closeEdit}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <strong>Sửa người chơi</strong>
+              <button onClick={closeEdit} style={{ border: "none", background: "transparent", fontSize: 18 }}>
+                ×
+              </button>
+            </div>
+            <div style={{ display: "grid", gap: 12 }}>
+              <div style={{ display: "grid", gap: 6 }}>
+                <label>Tên</label>
+                <input
+                  value={editForm.name}
+                  onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                  style={{ padding: 10, borderRadius: 8, border: "1px solid #e2e8f0" }}
+                />
+              </div>
+              <div style={{ display: "grid", gap: 6 }}>
+                <label>Điểm (1-10)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={editForm.skill}
+                  onChange={(e) => setEditForm((f) => ({ ...f, skill: Number(e.target.value) }))}
+                  style={{ padding: 10, borderRadius: 8, border: "1px solid #e2e8f0" }}
+                />
+              </div>
+              <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(140px,1fr))" }}>
+                <div style={{ display: "grid", gap: 6 }}>
+                  <label>Giới tính</label>
+                  <select
+                    value={editForm.gender}
+                    onChange={(e) => setEditForm((f) => ({ ...f, gender: e.target.value as "male" | "female" }))}
+                    style={{ padding: 10, borderRadius: 8, border: "1px solid #e2e8f0" }}
+                  >
+                    <option value="male">Nam</option>
+                    <option value="female">Nữ</option>
+                  </select>
+                </div>
+                <div style={{ display: "grid", gap: 6 }}>
+                  <label>Trạng thái</label>
+                  <select
+                    value={editForm.isActive ? "active" : "inactive"}
+                    onChange={(e) => setEditForm((f) => ({ ...f, isActive: e.target.value === "active" }))}
+                    style={{ padding: 10, borderRadius: 8, border: "1px solid #e2e8f0" }}
+                  >
+                    <option value="active">Hoạt động</option>
+                    <option value="inactive">Nghỉ</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ display: "grid", gap: 6 }}>
+                <label>Hành động</label>
+                <select
+                  value={editForm.team ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setEditForm((f) => ({ ...f, team: v === "" ? null : v }));
+                  }}
+                  style={{ padding: 10, borderRadius: 8, border: "1px solid #e2e8f0" }}
+                >
+                  <option value="">Đang chờ</option>
+                  {computedSplit.teams.map((t) => (
+                    <option key={t.name} value={t.name}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <button
+                  onClick={closeEdit}
+                  style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#f8fafc" }}
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={submitEditPlayer}
+                  style={{ padding: "10px 12px", borderRadius: 8, border: "none", background: "#2563eb", color: "white" }}
+                >
+                  Lưu
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

@@ -2,7 +2,7 @@ import "./globals.css";
 import type { ReactNode } from "react";
 
 export const metadata = {
-  title: "Chia đội cầu lông",
+  title: "Badminton Host",
   description: "Webapp chia đội và quản lý session cầu lông"
 };
 
