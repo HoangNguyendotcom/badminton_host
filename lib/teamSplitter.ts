@@ -11,8 +11,16 @@ function clonePlayer(p: Player): Player {
   return { ...p };
 }
 
-export function splitTeams(players: Player[]): SplitResult {
+function buildQuotas(total: number, teamCount: number) {
+  const base = Math.floor(total / teamCount);
+  const remainder = total % teamCount;
+  return Array.from({ length: teamCount }, (_, idx) => base + (idx < remainder ? 1 : 0));
+}
+
+export function splitTeams(players: Player[], teamCount = 2): SplitResult {
+  const safeTeamCount = Math.max(2, Math.floor(teamCount));
   const activePlayers = players.filter((p) => p.isActive);
+  const bench = players.filter((p) => !p.isActive).map(clonePlayer);
 
   const males = activePlayers
     .filter((p) => p.gender === "male")
@@ -21,83 +29,68 @@ export function splitTeams(players: Player[]): SplitResult {
     .filter((p) => p.gender === "female")
     .sort((a, b) => b.skillLevel - a.skillLevel);
 
-  const total = activePlayers.length;
-  const maleTotal = males.length;
-  const femaleTotal = females.length;
+  const countQuotas = buildQuotas(activePlayers.length, safeTeamCount);
+  const maleQuotas = buildQuotas(males.length, safeTeamCount);
+  const femaleQuotas = buildQuotas(females.length, safeTeamCount);
 
-  const teamACount = Math.floor(total / 2);
-  const teamBCount = total - teamACount;
+  const teams: Player[][] = Array.from({ length: safeTeamCount }, () => []);
 
-  const teamAMaleQuota = Math.floor(maleTotal / 2);
-  const teamBMaleQuota = maleTotal - teamAMaleQuota;
-  const teamAFemaleQuota = Math.floor(femaleTotal / 2);
-  const teamBFemaleQuota = femaleTotal - teamAFemaleQuota;
-
-  const teamA: Player[] = [];
-  const teamB: Player[] = [];
-
-  const pushPlayer = (player: Player, target: Player[]) => {
+  const pushPlayer = (player: Player, teamIdx: number) => {
     const copy = clonePlayer(player);
-    copy.team = target === teamA ? "A" : "B";
-    target.push(copy);
+    copy.team = `Đội ${teamIdx + 1}`;
+    teams[teamIdx].push(copy);
   };
 
-  const distribute = (pool: Player[], quotaA: number, quotaB: number) => {
+  const distribute = (pool: Player[]) => {
     for (const player of pool) {
-      const statsA = summarize(teamA);
-      const statsB = summarize(teamB);
-      const needA = statsA.count < teamACount;
-      const needB = statsB.count < teamBCount;
-      const needGenderA =
-        player.gender === "male" ? statsA.male < quotaA : statsA.female < quotaA;
-      const needGenderB =
-        player.gender === "male" ? statsB.male < quotaB : statsB.female < quotaB;
-
-      if (needGenderA && (!needGenderB || statsA.totalSkill <= statsB.totalSkill)) {
-        pushPlayer(player, teamA);
-      } else if (needGenderB) {
-        pushPlayer(player, teamB);
-      } else if (needA && (!needB || statsA.totalSkill <= statsB.totalSkill)) {
-        pushPlayer(player, teamA);
-      } else if (needB) {
-        pushPlayer(player, teamB);
-      } else {
-        // If both quotas are full, push to lower total skill team
-        if (statsA.totalSkill <= statsB.totalSkill) {
-          pushPlayer(player, teamA);
-        } else {
-          pushPlayer(player, teamB);
+      let chosenIdx = 0;
+      let bestScore: [number, number, number] | null = null;
+      teams.forEach((team, idx) => {
+        const stats = summarize(team);
+        const totalQuota = countQuotas[idx];
+        const genderQuota = player.gender === "male" ? maleQuotas[idx] : femaleQuotas[idx];
+        const genderCount = player.gender === "male" ? stats.male : stats.female;
+        const needGender = genderCount < genderQuota ? 0 : 1;
+        const needTotal = stats.count < totalQuota ? 0 : 1;
+        const score: [number, number, number] = [needGender, needTotal, stats.totalSkill];
+        if (bestScore === null || score < bestScore) {
+          bestScore = score;
+          chosenIdx = idx;
         }
-      }
+      });
+      pushPlayer(player, chosenIdx);
     }
   };
 
-  distribute(males, teamAMaleQuota, teamBMaleQuota);
-  distribute(females, teamAFemaleQuota, teamBFemaleQuota);
+  distribute(males);
+  distribute(females);
 
-  // Bench: inactive or not assigned
-  const bench = players.filter((p) => !p.isActive).map(clonePlayer);
-
-  const statsA = summarize(teamA);
-  const statsB = summarize(teamB);
-  const diffs = {
-    count: Math.abs(statsA.count - statsB.count),
-    male: Math.abs(statsA.male - statsB.male),
-    female: Math.abs(statsA.female - statsB.female),
-    skill: Math.abs(statsA.totalSkill - statsB.totalSkill)
-  };
+  const splitTeamsResult = teams.map((team, idx) => ({
+    name: `Đội ${idx + 1}`,
+    players: team,
+    stats: summarize(team)
+  }));
 
   const warnings: string[] = [];
-  if (diffs.count > 1) warnings.push("Chênh lệch số người > 1");
-  if (diffs.male > 1) warnings.push("Chênh lệch số nam > 1");
-  if (diffs.female > 1) warnings.push("Chênh lệch số nữ > 1");
-  if (diffs.skill > 5) warnings.push("Chênh lệch tổng điểm > 5");
+  if (activePlayers.length < safeTeamCount * 2) {
+    warnings.push(`Cần ít nhất ${safeTeamCount * 2} người cho ${safeTeamCount} đội.`);
+  }
+  // Basic balance warnings: compare max/min among teams
+  const counts = splitTeamsResult.map((t) => t.stats.count);
+  const malesCount = splitTeamsResult.map((t) => t.stats.male);
+  const femalesCount = splitTeamsResult.map((t) => t.stats.female);
+  const skills = splitTeamsResult.map((t) => t.stats.totalSkill);
+
+  const diff = (arr: number[]) => Math.max(...arr) - Math.min(...arr);
+  if (diff(counts) > 1) warnings.push("Chênh lệch số người giữa các đội > 1");
+  if (diff(malesCount) > 1) warnings.push("Chênh lệch số nam giữa các đội > 1");
+  if (diff(femalesCount) > 1) warnings.push("Chênh lệch số nữ giữa các đội > 1");
+  if (diff(skills) > 5) warnings.push("Chênh lệch tổng điểm giữa các đội > 5");
 
   return {
-    teamA,
-    teamB,
+    teams: splitTeamsResult,
     bench,
-    stats: { teamA: statsA, teamB: statsB, diffs, warnings }
+    warnings
   };
 }
 

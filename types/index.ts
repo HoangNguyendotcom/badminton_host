@@ -1,5 +1,5 @@
 export type Gender = "male" | "female";
-export type Team = "A" | "B" | null;
+export type Team = string | null;
 
 export interface Player {
   id: string;
@@ -23,20 +23,15 @@ export interface TeamStats {
   totalSkill: number;
 }
 
+export interface SplitTeam {
+  name: string;
+  players: Player[];
+  stats: TeamStats;
+}
+
 export interface SplitResult {
-  teamA: Player[];
-  teamB: Player[];
+  teams: SplitTeam[];
   bench: Player[];
-  stats: {
-    teamA: TeamStats;
-    teamB: TeamStats;
-    diffs: {
-      count: number;
-      male: number;
-      female: number;
-      skill: number;
-    };
-    warnings: string[];
-  };
+  warnings: string[];
 }
 

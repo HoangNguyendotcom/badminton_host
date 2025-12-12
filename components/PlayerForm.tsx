@@ -27,7 +27,7 @@ export function PlayerForm({ onAdd }: Props) {
           id="name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Ví dụ: Minh"
+          placeholder="Ví dụ: Lin Dan"
           required
           style={{ padding: 10, borderRadius: 8, border: "1px solid #e2e8f0" }}
         />
