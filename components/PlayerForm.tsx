@@ -29,7 +29,7 @@ export function PlayerForm({ onAdd }: Props) {
           onChange={(e) => setName(e.target.value)}
           placeholder="Ví dụ: Lin Dan"
           required
-          style={{ padding: 10, borderRadius: 8, border: "1px solid #e2e8f0" }}
+          style={{ padding: 10, borderRadius: 8, border: "1px solid #e2e8f0", width: "100%" }}
         />
       </div>
       <div style={{ display: "grid", gap: 6, gridTemplateColumns: "1fr 1fr" }}>
@@ -39,7 +39,7 @@ export function PlayerForm({ onAdd }: Props) {
             id="gender"
             value={gender}
             onChange={(e) => setGender(e.target.value as Gender)}
-            style={{ padding: 10, borderRadius: 8, border: "1px solid #e2e8f0" }}
+            style={{ padding: 10, borderRadius: 8, border: "1px solid #e2e8f0", width: "100%" }}
           >
             <option value="male">Nam</option>
             <option value="female">Nữ</option>
@@ -54,7 +54,7 @@ export function PlayerForm({ onAdd }: Props) {
             max={10}
             value={skillLevel}
             onChange={(e) => setSkillLevel(Number(e.target.value))}
-            style={{ padding: 10, borderRadius: 8, border: "1px solid #e2e8f0" }}
+            style={{ padding: 10, borderRadius: 8, border: "1px solid #e2e8f0", width: "100%" }}
           />
         </div>
       </div>
