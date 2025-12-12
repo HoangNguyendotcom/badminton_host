@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from "react";
-import { v4 as uuid } from "uuid";
 import { PlayerForm } from "@/components/PlayerForm";
 import { PlayerList } from "@/components/PlayerList";
 import { TeamPanel } from "@/components/TeamPanel";
@@ -47,7 +46,7 @@ export default function Page() {
 
   const handleAddPlayer = (payload: { name: string; gender: "male" | "female"; skillLevel: number }) => {
     const newPlayer: Player = {
-      id: uuid(),
+      id: crypto.randomUUID(),
       name: payload.name,
       gender: payload.gender,
       skillLevel: Math.min(10, Math.max(1, payload.skillLevel)),
