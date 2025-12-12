@@ -31,7 +31,7 @@ export function PlayerList({ players, moveOptions, onAssign, onToggleActive, onE
               <th>Giới tính</th>
               <th>Điểm</th>
               <th>Trạng thái</th>
-              <th>Hành động</th>
+              <th>Đội</th>
               <th>Edit</th>
             </tr>
           </thead>
