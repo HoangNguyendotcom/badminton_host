@@ -1,10 +1,45 @@
 import { useState } from "react";
-import type { TournamentMatch, MatchSide } from "@/types";
+import type { TournamentMatch, MatchSide, TournamentCompetitor } from "@/types";
 
 interface Props {
   match: TournamentMatch;
   onSave: (matchId: string, scoreA: number, scoreB: number) => void;
   onCancel: () => void;
+}
+
+// Helper to render competitor name
+function renderCompetitorName(competitor: TournamentCompetitor) {
+  if ("player1" in competitor) {
+    // It's a pair
+    return (
+      <>
+        <div style={{ marginBottom: 4 }}>
+          <span style={{ color: competitor.player1.gender === "male" ? "#2563eb" : "#db2777" }}>
+            {competitor.player1.gender === "male" ? "♂" : "♀"}
+          </span>
+          {" " + competitor.player1.name}
+        </div>
+        <div>
+          <span style={{ color: competitor.player2.gender === "male" ? "#2563eb" : "#db2777" }}>
+            {competitor.player2.gender === "male" ? "♂" : "♀"}
+          </span>
+          {" " + competitor.player2.name}
+        </div>
+      </>
+    );
+  } else {
+    // It's a single player
+    return (
+      <div>
+        <div style={{ marginBottom: 4 }}>
+          <span style={{ color: competitor.gender === "male" ? "#2563eb" : "#db2777" }}>
+            {competitor.gender === "male" ? "♂" : "♀"}
+          </span>
+        </div>
+        <strong>{competitor.name}</strong>
+      </div>
+    );
+  }
 }
 
 export function TournamentScoreModal({ match, onSave, onCancel }: Props) {
@@ -16,6 +51,14 @@ export function TournamentScoreModal({ match, onSave, onCancel }: Props) {
   };
 
   const winner: MatchSide | null = scoreA > scoreB ? "a" : scoreB > scoreA ? "b" : null;
+
+  // Get names for winner indicator
+  const getCompetitorDisplayName = (competitor: TournamentCompetitor): string => {
+    if ("player1" in competitor) {
+      return `${competitor.player1.name} + ${competitor.player2.name}`;
+    }
+    return competitor.name;
+  };
 
   return (
     <div
@@ -48,7 +91,7 @@ export function TournamentScoreModal({ match, onSave, onCancel }: Props) {
 
         {/* Score Input */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 16, alignItems: "center", marginBottom: 24 }}>
-          {/* Player A */}
+          {/* Team A */}
           <div style={{ textAlign: "center" }}>
             <div
               style={{
@@ -57,14 +100,14 @@ export function TournamentScoreModal({ match, onSave, onCancel }: Props) {
                 background: winner === "a" ? "#dcfce7" : "#f8fafc",
                 border: winner === "a" ? "2px solid #16a34a" : "1px solid #e2e8f0",
                 marginBottom: 12,
+                minHeight: 60,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+                fontSize: 13,
               }}
             >
-              <div style={{ marginBottom: 4 }}>
-                <span style={{ color: match.playerA.gender === "male" ? "#2563eb" : "#db2777" }}>
-                  {match.playerA.gender === "male" ? "♂" : "♀"}
-                </span>
-              </div>
-              <strong>{match.playerA.name}</strong>
+              {renderCompetitorName(match.teamA)}
             </div>
             <select
               value={scoreA}
@@ -90,7 +133,7 @@ export function TournamentScoreModal({ match, onSave, onCancel }: Props) {
           {/* VS */}
           <div style={{ fontSize: 18, color: "#94a3b8", fontWeight: 500 }}>vs</div>
 
-          {/* Player B */}
+          {/* Team B */}
           <div style={{ textAlign: "center" }}>
             <div
               style={{
@@ -99,14 +142,14 @@ export function TournamentScoreModal({ match, onSave, onCancel }: Props) {
                 background: winner === "b" ? "#dcfce7" : "#f8fafc",
                 border: winner === "b" ? "2px solid #16a34a" : "1px solid #e2e8f0",
                 marginBottom: 12,
+                minHeight: 60,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+                fontSize: 13,
               }}
             >
-              <div style={{ marginBottom: 4 }}>
-                <span style={{ color: match.playerB.gender === "male" ? "#2563eb" : "#db2777" }}>
-                  {match.playerB.gender === "male" ? "♂" : "♀"}
-                </span>
-              </div>
-              <strong>{match.playerB.name}</strong>
+              {renderCompetitorName(match.teamB)}
             </div>
             <select
               value={scoreB}
@@ -141,7 +184,7 @@ export function TournamentScoreModal({ match, onSave, onCancel }: Props) {
               marginBottom: 20,
             }}
           >
-            <strong>{winner === "a" ? match.playerA.name : match.playerB.name}</strong> thắng!
+            <strong>{getCompetitorDisplayName(winner === "a" ? match.teamA : match.teamB)}</strong> thắng!
           </div>
         )}
 

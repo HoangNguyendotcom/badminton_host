@@ -1,8 +1,41 @@
-import type { TournamentMatch, TournamentData } from "@/types";
+import type { TournamentMatch, TournamentData, TournamentCompetitor } from "@/types";
 
 interface Props {
   tournament: TournamentData;
   onSelectMatch: (match: TournamentMatch) => void;
+}
+
+// Helper to render competitor (single player or pair)
+function renderCompetitor(competitor: TournamentCompetitor) {
+  if ("player1" in competitor) {
+    // It's a pair
+    return (
+      <div style={{ fontSize: 13 }}>
+        <div>
+          <span style={{ color: competitor.player1.gender === "male" ? "#2563eb" : "#db2777", marginRight: 4 }}>
+            {competitor.player1.gender === "male" ? "♂" : "♀"}
+          </span>
+          {competitor.player1.name}
+        </div>
+        <div>
+          <span style={{ color: competitor.player2.gender === "male" ? "#2563eb" : "#db2777", marginRight: 4 }}>
+            {competitor.player2.gender === "male" ? "♂" : "♀"}
+          </span>
+          {competitor.player2.name}
+        </div>
+      </div>
+    );
+  } else {
+    // It's a single player
+    return (
+      <div>
+        <span style={{ color: competitor.gender === "male" ? "#2563eb" : "#db2777", marginRight: 4 }}>
+          {competitor.gender === "male" ? "♂" : "♀"}
+        </span>
+        {competitor.name}
+      </div>
+    );
+  }
 }
 
 export function TournamentBracket({ tournament, onSelectMatch }: Props) {
@@ -99,7 +132,7 @@ export function TournamentBracket({ tournament, onSelectMatch }: Props) {
                         alignItems: "center",
                       }}
                     >
-                      {/* Player A */}
+                      {/* Team A */}
                       <div
                         style={{
                           padding: 8,
@@ -109,10 +142,7 @@ export function TournamentBracket({ tournament, onSelectMatch }: Props) {
                         }}
                       >
                         <div style={{ fontWeight: match.winner === "a" ? 600 : 400 }}>
-                          <span style={{ color: match.playerA.gender === "male" ? "#2563eb" : "#db2777", marginRight: 4 }}>
-                            {match.playerA.gender === "male" ? "♂" : "♀"}
-                          </span>
-                          {match.playerA.name}
+                          {renderCompetitor(match.teamA)}
                         </div>
                       </div>
 
@@ -127,7 +157,7 @@ export function TournamentBracket({ tournament, onSelectMatch }: Props) {
                         )}
                       </div>
 
-                      {/* Player B */}
+                      {/* Team B */}
                       <div
                         style={{
                           padding: 8,
@@ -138,10 +168,7 @@ export function TournamentBracket({ tournament, onSelectMatch }: Props) {
                         }}
                       >
                         <div style={{ fontWeight: match.winner === "b" ? 600 : 400 }}>
-                          <span style={{ color: match.playerB.gender === "male" ? "#2563eb" : "#db2777", marginRight: 4 }}>
-                            {match.playerB.gender === "male" ? "♂" : "♀"}
-                          </span>
-                          {match.playerB.name}
+                          {renderCompetitor(match.teamB)}
                         </div>
                       </div>
                     </div>

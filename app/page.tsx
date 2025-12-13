@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { PlayerForm } from "@/components/PlayerForm";
+import { PairForm } from "@/components/PairForm";
 import { PlayerList } from "@/components/PlayerList";
+import { PairList } from "@/components/PairList";
 import { TeamPanel } from "@/components/TeamPanel";
 import { ModeSelector } from "@/components/ModeSelector";
 import { MatchCreator } from "@/components/MatchCreator";
@@ -15,8 +17,8 @@ import { TournamentStandings } from "@/components/TournamentStandings";
 import { TournamentScoreModal } from "@/components/TournamentScoreModal";
 import { generateSessionCode, loadSession, saveSession, loadSessionSync, saveSessionSync, clearSessionData } from "@/lib/sessionStore";
 import { splitTeams } from "@/lib/teamSplitter";
-import { recordTournamentMatchResult } from "@/lib/tournament";
-import type { Player, SplitResult, GameMode, TournamentFormat, MatchType, Match, MatchPlayer, TournamentData, TournamentMatch } from "@/types";
+import { recordTournamentMatchResult, isDoublesType } from "@/lib/tournament";
+import type { Player, SplitResult, GameMode, TournamentFormat, MatchType, Match, MatchPlayer, TournamentData, TournamentMatch, TournamentPair } from "@/types";
 
 const LAST_SESSION_KEY = "badminton-last-session";
 
@@ -78,6 +80,7 @@ export default function Page() {
   const [tournament, setTournament] = useState<TournamentData | null>(null);
   const [showTournamentSetup, setShowTournamentSetup] = useState(false);
   const [selectedTournamentMatch, setSelectedTournamentMatch] = useState<TournamentMatch | null>(null);
+  const [pairs, setPairs] = useState<TournamentPair[]>([]);
 
   // Load session on refresh (check sessionStorage for active session)
   useEffect(() => {
@@ -94,6 +97,7 @@ export default function Page() {
           setSessionCode(localSession.sessionCode);
           setInputSession(localSession.sessionCode);
           setPlayers(localSession.players);
+          setPairs(localSession.pairs || []);
           setGameMode(localSession.gameMode || "team");
           setTournamentFormat(localSession.tournamentFormat);
           setMatchType(localSession.matchType);
@@ -107,6 +111,7 @@ export default function Page() {
           setSessionCode(existing.sessionCode);
           setInputSession(existing.sessionCode);
           setPlayers(existing.players);
+          setPairs(existing.pairs || []);
           setGameMode(existing.gameMode || "team");
           setTournamentFormat(existing.tournamentFormat);
           setMatchType(existing.matchType);
@@ -125,6 +130,7 @@ export default function Page() {
     const sessionData = {
       sessionCode,
       players,
+      pairs: pairs.length > 0 ? pairs : undefined,
       lastSplitAt: split ? new Date().toISOString() : undefined,
       gameMode,
       tournamentFormat,
@@ -140,7 +146,7 @@ export default function Page() {
     if (typeof window !== "undefined") {
       localStorage.setItem(LAST_SESSION_KEY, sessionCode);
     }
-  }, [sessionCode, players, split, gameMode, tournamentFormat, matchType, matches, tournament]);
+  }, [sessionCode, players, pairs, split, gameMode, tournamentFormat, matchType, matches, tournament]);
 
   const computedSplit = useMemo(() => {
     if (split) return split;
@@ -159,6 +165,32 @@ export default function Page() {
     setPlayers((prev) => [...prev, newPlayer]);
   };
 
+  const handleAddPair = (payload: {
+    name1: string;
+    gender1: "male" | "female";
+    skillLevel1: number;
+    name2: string;
+    gender2: "male" | "female";
+    skillLevel2: number;
+  }) => {
+    const newPair: TournamentPair = {
+      id: crypto.randomUUID(),
+      player1: {
+        id: crypto.randomUUID(),
+        name: payload.name1,
+        gender: payload.gender1,
+        skillLevel: Math.min(10, Math.max(1, payload.skillLevel1)),
+      },
+      player2: {
+        id: crypto.randomUUID(),
+        name: payload.name2,
+        gender: payload.gender2,
+        skillLevel: Math.min(10, Math.max(1, payload.skillLevel2)),
+      },
+    };
+    setPairs((prev) => [...prev, newPair]);
+  };
+
   const handleToggleActive = (id: string) => {
     setPlayers((prev) =>
       prev.map((p) => (p.id === id ? { ...p, isActive: !p.isActive, team: p.isActive ? null : p.team } : p))
@@ -167,6 +199,10 @@ export default function Page() {
 
   const handleRemove = (id: string) => {
     setPlayers((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  const handleRemovePair = (id: string) => {
+    setPairs((prev) => prev.filter((p) => p.id !== id));
   };
 
   const handleSplit = () => {
@@ -200,6 +236,7 @@ export default function Page() {
     setSessionCode(code);
     setInputSession(code);
     setPlayers([]);
+    setPairs([]);
     setSplit(null);
     setMatches([]);
     setTournament(null);
@@ -221,6 +258,7 @@ export default function Page() {
     if (localSession) {
       setSessionCode(localSession.sessionCode);
       setPlayers(localSession.players);
+      setPairs(localSession.pairs || []);
       setSplit(null);
       setGameMode(localSession.gameMode || "team");
       setTournamentFormat(localSession.tournamentFormat);
@@ -235,6 +273,7 @@ export default function Page() {
     if (existing) {
       setSessionCode(existing.sessionCode);
       setPlayers(existing.players);
+      setPairs(existing.pairs || []);
       setSplit(null);
       setGameMode(existing.gameMode || "team");
       setTournamentFormat(existing.tournamentFormat);
@@ -266,6 +305,11 @@ export default function Page() {
       setSplit(buildViewFromPlayers(updated, teamCount));
       return updated;
     });
+  };
+
+  const openEditPair = (pair: TournamentPair) => {
+    // For now, just show an alert - full edit functionality can be added later
+    alert("Chỉnh sửa cặp: Tính năng sẽ được thêm sau");
   };
 
   const openEditPlayer = (player: Player) => {
@@ -431,7 +475,11 @@ export default function Page() {
       </header>
 
       <div className="grid grid-2">
-        <PlayerForm onAdd={handleAddPlayer} />
+        {gameMode === "tournament" && matchType && isDoublesType(matchType) ? (
+          <PairForm matchType={matchType} onAdd={handleAddPair} />
+        ) : (
+          <PlayerForm onAdd={handleAddPlayer} />
+        )}
 
         {gameMode === "team" && (
           <div className="card" style={{ display: "grid", gap: 12, alignContent: "start" }}>
@@ -557,33 +605,50 @@ export default function Page() {
                 </button>
               </div>
             ) : (
-              <button
-                onClick={() => setShowTournamentSetup(true)}
-                disabled={players.filter(p => p.isActive).length < 2}
-                style={{
-                  padding: "12px 14px",
-                  borderRadius: 10,
-                  border: "none",
-                  background: players.filter(p => p.isActive).length >= 2 ? "#f59e0b" : "#cbd5e1",
-                  color: players.filter(p => p.isActive).length >= 2 ? "white" : "#475569",
-                  fontWeight: 600
-                }}
-              >
-                Tạo bảng đấu
-              </button>
+              (() => {
+                const isDoublesMode = matchType && isDoublesType(matchType);
+                const canCreateTournament = isDoublesMode
+                  ? pairs.length >= 2
+                  : players.filter(p => p.isActive).length >= 2;
+
+                return (
+                  <button
+                    onClick={() => setShowTournamentSetup(true)}
+                    disabled={!canCreateTournament}
+                    style={{
+                      padding: "12px 14px",
+                      borderRadius: 10,
+                      border: "none",
+                      background: canCreateTournament ? "#f59e0b" : "#cbd5e1",
+                      color: canCreateTournament ? "white" : "#475569",
+                      fontWeight: 600
+                    }}
+                  >
+                    Tạo bảng đấu
+                  </button>
+                );
+              })()
             )}
           </div>
         )}
       </div>
 
-      <PlayerList
-        players={players}
-        moveOptions={computedSplit.teams.map((t) => t.name)}
-        onAssign={handleMovePlayer}
-        onToggleActive={handleToggleActive}
-        onEdit={openEditPlayer}
-        onRemove={handleRemove}
-      />
+      {gameMode === "tournament" && matchType && isDoublesType(matchType) ? (
+        <PairList
+          pairs={pairs}
+          onEdit={openEditPair}
+          onRemove={handleRemovePair}
+        />
+      ) : (
+        <PlayerList
+          players={players}
+          moveOptions={computedSplit.teams.map((t) => t.name)}
+          onAssign={handleMovePlayer}
+          onToggleActive={handleToggleActive}
+          onEdit={openEditPlayer}
+          onRemove={handleRemove}
+        />
+      )}
 
       {gameMode === "free_play" && matches.length > 0 && (
         <div className="card">
@@ -774,9 +839,11 @@ export default function Page() {
         />
       )}
 
-      {showTournamentSetup && (
+      {showTournamentSetup && matchType && (
         <TournamentSetup
           players={players}
+          pairs={pairs}
+          matchType={matchType}
           onStart={handleStartTournament}
           onCancel={() => setShowTournamentSetup(false)}
         />

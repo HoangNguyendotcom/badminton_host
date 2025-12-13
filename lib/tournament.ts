@@ -1,15 +1,32 @@
-import type { Player, MatchPlayer, TournamentMatch, TournamentStanding, TournamentData, MatchType, MatchSide } from "@/types";
+import type { Player, MatchPlayer, TournamentMatch, TournamentStanding, TournamentData, MatchType, MatchSide, TournamentCompetitor, TournamentPair } from "@/types";
+
+/**
+ * Check if a match type is doubles
+ */
+export function isDoublesType(matchType: MatchType): boolean {
+  return ["XD", "MD", "WD"].includes(matchType);
+}
+
+/**
+ * Helper to get a unique ID for a competitor (player or pair)
+ */
+function getCompetitorId(competitor: TournamentCompetitor): string {
+  if ("player1" in competitor) {
+    return competitor.id;
+  }
+  return competitor.id;
+}
 
 /**
  * Generate a round robin schedule using the circle method
- * For N players: N-1 rounds if N is even, N rounds if N is odd (with bye)
+ * For N competitors: N-1 rounds if N is even, N rounds if N is odd (with bye)
  */
-export function generateRoundRobinSchedule(players: MatchPlayer[]): TournamentMatch[][] {
-  const n = players.length;
+export function generateRoundRobinSchedule(competitors: TournamentCompetitor[]): TournamentMatch[][] {
+  const n = competitors.length;
   if (n < 2) return [];
 
-  // Add a "bye" player if odd number
-  const participants = [...players];
+  // Add a "bye" competitor if odd number
+  const participants = [...competitors];
   if (n % 2 === 1) {
     participants.push({ id: "bye", name: "BYE", gender: "male", skillLevel: 0 });
   }
@@ -27,17 +44,19 @@ export function generateRoundRobinSchedule(players: MatchPlayer[]): TournamentMa
     for (let i = 0; i < halfSize; i++) {
       const homeIdx = indices[i];
       const awayIdx = indices[participants.length - 1 - i];
-      const playerA = participants[homeIdx];
-      const playerB = participants[awayIdx];
+      const teamA = participants[homeIdx];
+      const teamB = participants[awayIdx];
 
       // Skip matches with BYE
-      if (playerA.id === "bye" || playerB.id === "bye") continue;
+      const teamAId = getCompetitorId(teamA);
+      const teamBId = getCompetitorId(teamB);
+      if (teamAId === "bye" || teamBId === "bye") continue;
 
       roundMatches.push({
         id: `r${round + 1}-m${i + 1}`,
         round: round + 1,
-        playerA,
-        playerB,
+        teamA,
+        teamB,
         scoreA: null,
         scoreB: null,
         winner: null,
@@ -59,15 +78,15 @@ export function generateRoundRobinSchedule(players: MatchPlayer[]): TournamentMa
  * Calculate standings from tournament schedule
  */
 export function calculateStandings(
-  players: MatchPlayer[],
+  competitors: TournamentCompetitor[],
   schedule: TournamentMatch[][]
 ): TournamentStanding[] {
-  // Initialize standings for each player
+  // Initialize standings for each competitor
   const standingsMap = new Map<string, TournamentStanding>();
 
-  for (const player of players) {
-    standingsMap.set(player.id, {
-      player,
+  for (const competitor of competitors) {
+    standingsMap.set(getCompetitorId(competitor), {
+      competitor,
       played: 0,
       wins: 0,
       losses: 0,
@@ -81,8 +100,8 @@ export function calculateStandings(
     for (const match of round) {
       if (match.status !== "completed" || match.winner === null) continue;
 
-      const standingA = standingsMap.get(match.playerA.id);
-      const standingB = standingsMap.get(match.playerB.id);
+      const standingA = standingsMap.get(getCompetitorId(match.teamA));
+      const standingB = standingsMap.get(getCompetitorId(match.teamB));
 
       if (standingA) {
         standingA.played++;
@@ -129,22 +148,14 @@ export function calculateStandings(
 }
 
 /**
- * Create a new tournament from selected players
+ * Create a new tournament from competitors (players for singles, pairs for doubles)
  */
 export function createTournament(
-  players: Player[],
+  competitors: TournamentCompetitor[],
   matchType: MatchType
 ): TournamentData {
-  // Convert to MatchPlayer format
-  const matchPlayers: MatchPlayer[] = players.map((p) => ({
-    id: p.id,
-    name: p.name,
-    gender: p.gender,
-    skillLevel: p.skillLevel,
-  }));
-
-  const schedule = generateRoundRobinSchedule(matchPlayers);
-  const standings = calculateStandings(matchPlayers, schedule);
+  const schedule = generateRoundRobinSchedule(competitors);
+  const standings = calculateStandings(competitors, schedule);
 
   return {
     format: "round_robin",
@@ -182,18 +193,18 @@ export function recordTournamentMatchResult(
     })
   );
 
-  // Get all players from schedule
-  const playersMap = new Map<string, MatchPlayer>();
+  // Get all competitors from schedule
+  const competitorsMap = new Map<string, TournamentCompetitor>();
   for (const round of tournament.schedule) {
     for (const match of round) {
-      playersMap.set(match.playerA.id, match.playerA);
-      playersMap.set(match.playerB.id, match.playerB);
+      competitorsMap.set(getCompetitorId(match.teamA), match.teamA);
+      competitorsMap.set(getCompetitorId(match.teamB), match.teamB);
     }
   }
-  const players = Array.from(playersMap.values());
+  const competitors = Array.from(competitorsMap.values());
 
   // Recalculate standings
-  const standings = calculateStandings(players, newSchedule);
+  const standings = calculateStandings(competitors, newSchedule);
 
   // Check if tournament is complete
   const totalMatches = newSchedule.flat().length;

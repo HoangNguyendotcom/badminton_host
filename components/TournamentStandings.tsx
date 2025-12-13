@@ -1,7 +1,40 @@
-import type { TournamentStanding } from "@/types";
+import type { TournamentStanding, TournamentCompetitor } from "@/types";
 
 interface Props {
   standings: TournamentStanding[];
+}
+
+// Helper to render competitor name
+function renderCompetitorName(competitor: TournamentCompetitor) {
+  if ("player1" in competitor) {
+    // It's a pair
+    return (
+      <div style={{ fontSize: 13 }}>
+        <div>
+          <span style={{ color: competitor.player1.gender === "male" ? "#2563eb" : "#db2777", marginRight: 4 }}>
+            {competitor.player1.gender === "male" ? "♂" : "♀"}
+          </span>
+          {competitor.player1.name}
+        </div>
+        <div>
+          <span style={{ color: competitor.player2.gender === "male" ? "#2563eb" : "#db2777", marginRight: 4 }}>
+            {competitor.player2.gender === "male" ? "♂" : "♀"}
+          </span>
+          {competitor.player2.name}
+        </div>
+      </div>
+    );
+  } else {
+    // It's a single player
+    return (
+      <div>
+        <span style={{ color: competitor.gender === "male" ? "#2563eb" : "#db2777", marginRight: 4 }}>
+          {competitor.gender === "male" ? "♂" : "♀"}
+        </span>
+        {competitor.name}
+      </div>
+    );
+  }
 }
 
 export function TournamentStandings({ standings }: Props) {
@@ -25,7 +58,11 @@ export function TournamentStandings({ standings }: Props) {
               const isLeader = standing.rank === 1 && standing.played > 0;
               return (
                 <tr
-                  key={standing.player.id}
+                  key={
+                    "player1" in standing.competitor
+                      ? standing.competitor.id
+                      : standing.competitor.id
+                  }
                   style={{
                     borderBottom: "1px solid #f1f5f9",
                     background: isLeader ? "#dcfce7" : idx % 2 === 0 ? "#fff" : "#f8fafc",
@@ -42,10 +79,7 @@ export function TournamentStandings({ standings }: Props) {
                     {standing.rank}
                   </td>
                   <td style={{ padding: "10px 4px", fontWeight: isLeader ? 600 : 400 }}>
-                    <span style={{ color: standing.player.gender === "male" ? "#2563eb" : "#db2777", marginRight: 4 }}>
-                      {standing.player.gender === "male" ? "♂" : "♀"}
-                    </span>
-                    {standing.player.name}
+                    {renderCompetitorName(standing.competitor)}
                   </td>
                   <td style={{ padding: "10px 4px", textAlign: "center" }}>{standing.played}</td>
                   <td style={{ padding: "10px 4px", textAlign: "center", color: "#16a34a" }}>

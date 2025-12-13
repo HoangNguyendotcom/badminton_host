@@ -16,6 +16,7 @@ export interface Player {
 export interface SessionData {
   sessionCode: string;
   players: Player[];
+  pairs?: TournamentPair[];
   lastSplitAt?: string;
   gameMode: GameMode;
   tournamentFormat?: TournamentFormat;
@@ -68,11 +69,19 @@ export interface Match {
 }
 
 // Tournament types
+export interface TournamentPair {
+  id: string;
+  player1: MatchPlayer;
+  player2: MatchPlayer;
+}
+
+export type TournamentCompetitor = MatchPlayer | TournamentPair;
+
 export interface TournamentMatch {
   id: string;
   round: number;
-  playerA: MatchPlayer;
-  playerB: MatchPlayer;
+  teamA: TournamentCompetitor;
+  teamB: TournamentCompetitor;
   scoreA: number | null;
   scoreB: number | null;
   winner: MatchSide | null;
@@ -80,7 +89,7 @@ export interface TournamentMatch {
 }
 
 export interface TournamentStanding {
-  player: MatchPlayer;
+  competitor: TournamentCompetitor;
   played: number;
   wins: number;
   losses: number;

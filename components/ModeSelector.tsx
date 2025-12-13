@@ -29,6 +29,7 @@ const tournamentFormats: { value: TournamentFormat; label: string; description: 
     label: "Vòng tròn",
     description: "Mỗi người/cặp đấu với tất cả đối thủ một lần."
   },
+  /*
   {
     value: "single_elimination",
     label: "Loại trực tiếp",
@@ -38,7 +39,7 @@ const tournamentFormats: { value: TournamentFormat; label: string; description: 
     value: "double_elimination",
     label: "Loại kép",
     description: "Phải thua hai trận mới bị loại."
-  }
+  }*/
 ];
 
 const matchTypes: { value: MatchType; label: string }[] = [
