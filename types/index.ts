@@ -21,6 +21,7 @@ export interface SessionData {
   tournamentFormat?: TournamentFormat;
   matchType?: MatchType;
   matches?: Match[];
+  tournament?: TournamentData;
 }
 
 export interface TeamStats {
@@ -64,5 +65,35 @@ export interface Match {
   winner: MatchSide | null;
   playedAt: string | null;
   createdAt: string;
+}
+
+// Tournament types
+export interface TournamentMatch {
+  id: string;
+  round: number;
+  playerA: MatchPlayer;
+  playerB: MatchPlayer;
+  scoreA: number | null;
+  scoreB: number | null;
+  winner: MatchSide | null;
+  status: "pending" | "completed";
+}
+
+export interface TournamentStanding {
+  player: MatchPlayer;
+  played: number;
+  wins: number;
+  losses: number;
+  points: number;
+  rank: number;
+}
+
+export interface TournamentData {
+  format: TournamentFormat;
+  matchType: MatchType;
+  schedule: TournamentMatch[][];
+  standings: TournamentStanding[];
+  currentRound: number;
+  isComplete: boolean;
 }
 

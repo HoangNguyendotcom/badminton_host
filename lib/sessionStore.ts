@@ -1,4 +1,4 @@
-import type { SessionData, Player, GameMode, TournamentFormat, MatchType } from "@/types";
+import type { SessionData, Player, Match, MatchPlayer, GameMode, TournamentFormat, MatchType } from "@/types";
 import { isSupabaseConfigured } from "./supabase";
 import * as db from "./db";
 
@@ -49,9 +49,44 @@ async function loadSessionFromSupabase(code: string): Promise<SessionData | null
     isActive: p.is_active,
   }));
 
+  // Load matches from Supabase
+  const dbMatches = await db.getMatchesBySession(sessionWithPlayers.id);
+  const matches: Match[] = dbMatches.map((m) => {
+    const teamA: MatchPlayer[] = m.match_players
+      .filter((mp) => mp.side === "a")
+      .map((mp) => ({
+        id: mp.player.id,
+        name: mp.player.name,
+        gender: mp.player.gender,
+        skillLevel: mp.player.skill_level,
+      }));
+    const teamB: MatchPlayer[] = m.match_players
+      .filter((mp) => mp.side === "b")
+      .map((mp) => ({
+        id: mp.player.id,
+        name: mp.player.name,
+        gender: mp.player.gender,
+        skillLevel: mp.player.skill_level,
+      }));
+
+    return {
+      id: m.id,
+      matchType: m.match_type,
+      status: m.status,
+      teamA,
+      teamB,
+      scoreA: m.team_a_score,
+      scoreB: m.team_b_score,
+      winner: m.winner_side,
+      playedAt: m.played_at,
+      createdAt: m.created_at,
+    };
+  });
+
   return {
     sessionCode: sessionWithPlayers.code,
     players,
+    matches,
     gameMode: sessionWithPlayers.game_mode,
     tournamentFormat: sessionWithPlayers.tournament_format || undefined,
     matchType: sessionWithPlayers.match_type_default || undefined,
@@ -111,6 +146,42 @@ async function syncPlayersToSupabase(sessionId: string, players: Player[]): Prom
   }
 }
 
+async function syncMatchesToSupabase(sessionId: string, matches: Match[]): Promise<void> {
+  // Get existing matches from Supabase
+  const existingMatches = await db.getMatchesBySession(sessionId);
+  const existingIds = new Set(existingMatches.map((m) => m.id));
+  const currentIds = new Set(matches.map((m) => m.id));
+
+  // Find matches to add, update, and delete
+  const toAdd = matches.filter((m) => !existingIds.has(m.id));
+  const toUpdate = matches.filter((m) => existingIds.has(m.id));
+  const toDelete = existingMatches.filter((m) => !currentIds.has(m.id));
+
+  // Add new matches
+  for (const match of toAdd) {
+    await db.createMatch({
+      sessionId,
+      matchType: match.matchType,
+      playerIds: [
+        ...match.teamA.map((p) => ({ playerId: p.id, side: "a" as const })),
+        ...match.teamB.map((p) => ({ playerId: p.id, side: "b" as const })),
+      ],
+    });
+  }
+
+  // Update existing matches (scores)
+  for (const match of toUpdate) {
+    if (match.status === "completed" && match.scoreA !== null && match.scoreB !== null) {
+      await db.recordMatchResult(match.id, match.scoreA, match.scoreB);
+    }
+  }
+
+  // Delete removed matches
+  for (const match of toDelete) {
+    await db.deleteMatch(match.id);
+  }
+}
+
 // ============ Unified API ============
 
 /**
@@ -148,6 +219,8 @@ export async function saveSession(data: SessionData): Promise<void> {
       if (existingSession) {
         // Sync players
         await syncPlayersToSupabase(existingSession.id, data.players);
+        // Sync matches
+        await syncMatchesToSupabase(existingSession.id, data.matches || []);
       } else {
         // Create new session
         const sessionId = await createSessionInSupabase(
@@ -157,17 +230,23 @@ export async function saveSession(data: SessionData): Promise<void> {
           data.matchType
         );
 
-        if (sessionId && data.players.length > 0) {
+        if (sessionId) {
           // Add all players
-          await db.createPlayers(
-            data.players.map((p) => ({
-              sessionId,
-              name: p.name,
-              gender: p.gender,
-              skillLevel: p.skillLevel,
-              isActive: p.isActive,
-            }))
-          );
+          if (data.players.length > 0) {
+            await db.createPlayers(
+              data.players.map((p) => ({
+                sessionId,
+                name: p.name,
+                gender: p.gender,
+                skillLevel: p.skillLevel,
+                isActive: p.isActive,
+              }))
+            );
+          }
+          // Add all matches
+          if (data.matches && data.matches.length > 0) {
+            await syncMatchesToSupabase(sessionId, data.matches);
+          }
         }
       }
     } catch (error) {

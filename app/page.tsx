@@ -9,9 +9,14 @@ import { MatchCreator } from "@/components/MatchCreator";
 import { MatchList } from "@/components/MatchList";
 import { MatchScoreModal } from "@/components/MatchScoreModal";
 import { WelcomeScreen } from "@/components/WelcomeScreen";
+import { TournamentSetup } from "@/components/TournamentSetup";
+import { TournamentBracket } from "@/components/TournamentBracket";
+import { TournamentStandings } from "@/components/TournamentStandings";
+import { TournamentScoreModal } from "@/components/TournamentScoreModal";
 import { generateSessionCode, loadSession, saveSession, loadSessionSync, saveSessionSync, clearSessionData } from "@/lib/sessionStore";
 import { splitTeams } from "@/lib/teamSplitter";
-import type { Player, SplitResult, GameMode, TournamentFormat, MatchType, Match, MatchPlayer } from "@/types";
+import { recordTournamentMatchResult } from "@/lib/tournament";
+import type { Player, SplitResult, GameMode, TournamentFormat, MatchType, Match, MatchPlayer, TournamentData, TournamentMatch } from "@/types";
 
 const LAST_SESSION_KEY = "badminton-last-session";
 
@@ -69,6 +74,11 @@ export default function Page() {
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [showWelcome, setShowWelcome] = useState(true);
 
+  // Tournament state
+  const [tournament, setTournament] = useState<TournamentData | null>(null);
+  const [showTournamentSetup, setShowTournamentSetup] = useState(false);
+  const [selectedTournamentMatch, setSelectedTournamentMatch] = useState<TournamentMatch | null>(null);
+
   // Load session on refresh (check sessionStorage for active session)
   useEffect(() => {
     const loadActiveSession = async () => {
@@ -88,6 +98,7 @@ export default function Page() {
           setTournamentFormat(localSession.tournamentFormat);
           setMatchType(localSession.matchType);
           setMatches(localSession.matches || []);
+          setTournament(localSession.tournament || null);
           setShowWelcome(false);
         }
         // Also try async load from Supabase for latest data
@@ -100,6 +111,7 @@ export default function Page() {
           setTournamentFormat(existing.tournamentFormat);
           setMatchType(existing.matchType);
           setMatches(existing.matches || []);
+          setTournament(existing.tournament || null);
           setShowWelcome(false);
         }
       }
@@ -117,7 +129,8 @@ export default function Page() {
       gameMode,
       tournamentFormat,
       matchType,
-      matches
+      matches,
+      tournament: tournament || undefined
     };
     saveSessionSync(sessionData);
 
@@ -127,7 +140,7 @@ export default function Page() {
     if (typeof window !== "undefined") {
       localStorage.setItem(LAST_SESSION_KEY, sessionCode);
     }
-  }, [sessionCode, players, split, gameMode, tournamentFormat, matchType, matches]);
+  }, [sessionCode, players, split, gameMode, tournamentFormat, matchType, matches, tournament]);
 
   const computedSplit = useMemo(() => {
     if (split) return split;
@@ -189,6 +202,7 @@ export default function Page() {
     setPlayers([]);
     setSplit(null);
     setMatches([]);
+    setTournament(null);
     setGameMode(mode);
     setTournamentFormat(format);
     setMatchType(type);
@@ -212,6 +226,7 @@ export default function Page() {
       setTournamentFormat(localSession.tournamentFormat);
       setMatchType(localSession.matchType);
       setMatches(localSession.matches || []);
+      setTournament(localSession.tournament || null);
       foundSession = true;
     }
 
@@ -225,6 +240,7 @@ export default function Page() {
       setTournamentFormat(existing.tournamentFormat);
       setMatchType(existing.matchType);
       setMatches(existing.matches || []);
+      setTournament(existing.tournament || null);
       foundSession = true;
     }
 
@@ -324,6 +340,23 @@ export default function Page() {
       )
     );
     setSelectedMatch(null);
+  };
+
+  // Tournament handlers
+  const handleStartTournament = (tournamentData: TournamentData) => {
+    setTournament(tournamentData);
+    setShowTournamentSetup(false);
+  };
+
+  const handleSaveTournamentScore = (matchId: string, scoreA: number, scoreB: number) => {
+    if (!tournament) return;
+    const updated = recordTournamentMatchResult(tournament, matchId, scoreA, scoreB);
+    setTournament(updated);
+    setSelectedTournamentMatch(null);
+  };
+
+  const handleResetTournament = () => {
+    setTournament(null);
   };
 
   if (showWelcome) {
@@ -495,19 +528,50 @@ export default function Page() {
                 matchType === "WD" ? "Đôi Nữ" : matchType
               }`}
             </p>
-            <button
-              disabled={players.filter(p => p.isActive).length < 2}
-              style={{
-                padding: "12px 14px",
-                borderRadius: 10,
-                border: "none",
-                background: players.filter(p => p.isActive).length >= 2 ? "#f59e0b" : "#cbd5e1",
-                color: players.filter(p => p.isActive).length >= 2 ? "white" : "#475569",
-                fontWeight: 600
-              }}
-            >
-              Tạo bảng đấu (Sắp ra mắt)
-            </button>
+            {tournament ? (
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <span
+                  style={{
+                    padding: "4px 10px",
+                    borderRadius: 6,
+                    background: tournament.isComplete ? "#dcfce7" : "#dbeafe",
+                    color: tournament.isComplete ? "#16a34a" : "#2563eb",
+                    fontSize: 13,
+                    fontWeight: 500,
+                  }}
+                >
+                  {tournament.isComplete ? "Hoàn thành" : `Vòng ${tournament.currentRound}`}
+                </span>
+                <button
+                  onClick={handleResetTournament}
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: 8,
+                    border: "1px solid #e2e8f0",
+                    background: "#f8fafc",
+                    fontSize: 13,
+                    cursor: "pointer",
+                  }}
+                >
+                  Đặt lại giải đấu
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowTournamentSetup(true)}
+                disabled={players.filter(p => p.isActive).length < 2}
+                style={{
+                  padding: "12px 14px",
+                  borderRadius: 10,
+                  border: "none",
+                  background: players.filter(p => p.isActive).length >= 2 ? "#f59e0b" : "#cbd5e1",
+                  color: players.filter(p => p.isActive).length >= 2 ? "white" : "#475569",
+                  fontWeight: 600
+                }}
+              >
+                Tạo bảng đấu
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -531,6 +595,16 @@ export default function Page() {
             onSelectMatch={setSelectedMatch}
             onDeleteMatch={handleDeleteMatch}
           />
+        </div>
+      )}
+
+      {gameMode === "tournament" && tournament && (
+        <div className="grid grid-2">
+          <TournamentBracket
+            tournament={tournament}
+            onSelectMatch={setSelectedTournamentMatch}
+          />
+          <TournamentStandings standings={tournament.standings} />
         </div>
       )}
 
@@ -697,6 +771,22 @@ export default function Page() {
           match={selectedMatch}
           onSave={handleSaveMatchScore}
           onCancel={() => setSelectedMatch(null)}
+        />
+      )}
+
+      {showTournamentSetup && (
+        <TournamentSetup
+          players={players}
+          onStart={handleStartTournament}
+          onCancel={() => setShowTournamentSetup(false)}
+        />
+      )}
+
+      {selectedTournamentMatch && (
+        <TournamentScoreModal
+          match={selectedTournamentMatch}
+          onSave={handleSaveTournamentScore}
+          onCancel={() => setSelectedTournamentMatch(null)}
         />
       )}
     </main>
