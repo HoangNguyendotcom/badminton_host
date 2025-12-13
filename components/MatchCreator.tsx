@@ -543,12 +543,14 @@ export function MatchCreator({ players, defaultMatchType = "MD", gameMode = "fre
             <button
               onClick={handleAutoBalance}
               style={{
-                padding: "6px 12px",
-                borderRadius: 6,
-                border: "1px solid #e2e8f0",
-                background: "#f8fafc",
+                padding: "12px 20px",
+                borderRadius: 8,
+                border: "none",
+                background: "#16a34a",
+                color: "white",
                 cursor: "pointer",
-                fontSize: 13
+                fontSize: 15,
+                fontWeight: 600
               }}
             >
               Tự động cân bằng
