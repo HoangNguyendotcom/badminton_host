@@ -892,23 +892,6 @@ export function MatchCreator({ players, defaultMatchType = "MD", gameMode = "fre
                 <span>⚡</span>
                 <span>Tự động ghép trận</span>
               </button>
-              <div style={{
-                flex: 1,
-                padding: "8px 16px",
-                borderRadius: 8,
-                border: "1px solid #cbd5e1",
-                background: "white",
-                color: "#64748b",
-                fontWeight: 500,
-                fontSize: 13,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6
-              }}>
-                <span>✋</span>
-                <span>Chọn thủ công</span>
-              </div>
             </div>
           </div>
 
