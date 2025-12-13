@@ -82,6 +82,26 @@ export default function Page() {
   const [selectedTournamentMatch, setSelectedTournamentMatch] = useState<TournamentMatch | null>(null);
   const [pairs, setPairs] = useState<TournamentPair[]>([]);
 
+  // Team points tracking - recalculated from matches
+  const teamPoints = useMemo(() => {
+    if (gameMode !== "team") return {};
+
+    const points: Record<string, number> = {};
+
+    // Calculate points from all completed matches
+    matches.forEach((match) => {
+      if (match.status === "completed" && match.winner) {
+        const winningPlayers = match.winner === "a" ? match.teamA : match.teamB;
+        const playerData = players.find((p) => p.id === winningPlayers[0]?.id);
+        if (playerData?.team) {
+          points[playerData.team] = (points[playerData.team] || 0) + 1;
+        }
+      }
+    });
+
+    return points;
+  }, [gameMode, matches, players]);
+
   // Load session on refresh (check sessionStorage for active session)
   useEffect(() => {
     const loadActiveSession = async () => {
@@ -369,6 +389,8 @@ export default function Page() {
   };
 
   const handleSaveMatchScore = (matchId: string, scoreA: number, scoreB: number) => {
+    // Update match with score and winner (points will be recalculated automatically)
+    const winnerSide = scoreA > scoreB ? "a" : scoreB > scoreA ? "b" : null;
     setMatches((prev) =>
       prev.map((m) =>
         m.id === matchId
@@ -377,12 +399,13 @@ export default function Page() {
               scoreA,
               scoreB,
               status: "completed" as const,
-              winner: scoreA > scoreB ? "a" : scoreB > scoreA ? "b" : null,
+              winner: winnerSide,
               playedAt: new Date().toISOString(),
             }
           : m
       )
     );
+
     setSelectedMatch(null);
   };
 
@@ -682,6 +705,7 @@ export default function Page() {
               color={palette[idx % palette.length]}
               players={team.players}
               stats={team.stats}
+              points={teamPoints[team.name] || 0}
               moveOptions={computedSplit.teams.map((t) => t.name)}
               onMovePlayer={handleMovePlayer}
             />

@@ -17,7 +17,6 @@ const matchTypeConfig: Record<MatchType, { label: string; playersPerTeam: number
   WD: { label: "Đôi Nữ", playersPerTeam: 2, genderFilter: "female" },
 };
 
-// Check if a match type has enough players
 function canPlayMatchType(type: MatchType, maleCount: number, femaleCount: number): boolean {
   switch (type) {
     case "MS": return maleCount >= 2;
@@ -28,19 +27,382 @@ function canPlayMatchType(type: MatchType, maleCount: number, femaleCount: numbe
   }
 }
 
+// Player Selection Modal Component
+interface PlayerSelectionModalProps {
+  players: Player[];
+  onSelect: (player: Player) => void;
+  onClose: () => void;
+  title: string;
+  teamColor: string;
+}
+
+function PlayerSelectionModal({ players, onSelect, onClose, title, teamColor }: PlayerSelectionModalProps) {
+  const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
+
+  // Group players by team
+  const groupedPlayers = players.reduce((acc, player) => {
+    const teamName = player.team || "Không có đội";
+    if (!acc[teamName]) acc[teamName] = [];
+    acc[teamName].push(player);
+    return acc;
+  }, {} as Record<string, Player[]>);
+
+  const toggleTeam = (teamName: string) => {
+    const newExpanded = new Set(expandedTeams);
+    if (newExpanded.has(teamName)) {
+      newExpanded.delete(teamName);
+    } else {
+      newExpanded.add(teamName);
+    }
+    setExpandedTeams(newExpanded);
+  };
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "rgba(0,0,0,0.6)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 2000,
+        animation: "fadeIn 0.2s ease-out"
+      }}
+      onClick={onClose}
+    >
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes scaleIn {
+          from { transform: scale(0.9); opacity: 0; }
+          to { transform: scale(1); opacity: 1; }
+        }
+      `}</style>
+      <div
+        style={{
+          background: "white",
+          borderRadius: "16px",
+          maxWidth: 600,
+          width: "90%",
+          maxHeight: "80vh",
+          display: "flex",
+          flexDirection: "column",
+          animation: "scaleIn 0.3s ease-out",
+          boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{ 
+          padding: "20px 24px", 
+          borderBottom: "2px solid #e2e8f0",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          background: "#f8fafc"
+        }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>{title}</h3>
+            <p style={{ margin: "4px 0 0 0", fontSize: 13, color: "#64748b" }}>
+              Chọn người chơi từ danh sách bên dưới
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              border: "none",
+              background: "#e2e8f0",
+              width: 32,
+              height: 32,
+              borderRadius: "50%",
+              fontSize: 20,
+              cursor: "pointer",
+              color: "#475569",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center"
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Player List */}
+        <div style={{ 
+          overflowY: "auto", 
+          padding: "16px 24px 24px",
+          flex: 1
+        }}>
+          {Object.entries(groupedPlayers).length === 0 ? (
+            <div style={{ 
+              textAlign: "center", 
+              padding: "40px 20px",
+              color: "#94a3b8"
+            }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>👥</div>
+              <p style={{ margin: 0, fontSize: 15 }}>Không có người chơi khả dụng</p>
+            </div>
+          ) : (
+            Object.entries(groupedPlayers).map(([teamName, teamPlayers]) => (
+              <div key={teamName} style={{ marginBottom: 12 }}>
+                {/* Team Header */}
+                <button
+                  onClick={() => toggleTeam(teamName)}
+                  style={{
+                    width: "100%",
+                    padding: "14px 16px",
+                    background: "#f1f5f9",
+                    border: "none",
+                    borderRadius: 10,
+                    cursor: "pointer",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    fontWeight: 600,
+                    fontSize: 15,
+                    transition: "all 0.2s"
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "#e2e8f0";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "#f1f5f9";
+                  }}
+                >
+                  <span>
+                    {teamName} 
+                    <span style={{ 
+                      marginLeft: 8, 
+                      color: "#64748b",
+                      fontSize: 13,
+                      fontWeight: 500
+                    }}>
+                      ({teamPlayers.length} người)
+                    </span>
+                  </span>
+                  <span style={{ 
+                    fontSize: 18,
+                    color: "#64748b",
+                    transition: "transform 0.2s",
+                    transform: expandedTeams.has(teamName) ? "rotate(180deg)" : "rotate(0deg)"
+                  }}>
+                    ▼
+                  </span>
+                </button>
+
+                {/* Team Players */}
+                {expandedTeams.has(teamName) && (
+                  <div style={{ marginTop: 8, paddingLeft: 4 }}>
+                    {teamPlayers.map((player) => (
+                      <button
+                        key={player.id}
+                        onClick={() => onSelect(player)}
+                        style={{
+                          width: "100%",
+                          padding: "14px 16px",
+                          background: "white",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: 10,
+                          cursor: "pointer",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginBottom: 8,
+                          transition: "all 0.2s"
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = "#f8fafc";
+                          e.currentTarget.style.borderColor = teamColor;
+                          e.currentTarget.style.transform = "translateX(4px)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = "white";
+                          e.currentTarget.style.borderColor = "#e2e8f0";
+                          e.currentTarget.style.transform = "translateX(0)";
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <span style={{ 
+                            color: player.gender === "male" ? "#2563eb" : "#db2777",
+                            fontSize: 20
+                          }}>
+                            {player.gender === "male" ? "♂" : "♀"}
+                          </span>
+                          <span style={{ fontWeight: 500, fontSize: 15 }}>{player.name}</span>
+                        </div>
+                        <span style={{ 
+                          color: "#64748b", 
+                          fontSize: 14,
+                          background: "#f1f5f9",
+                          padding: "4px 10px",
+                          borderRadius: 6,
+                          fontWeight: 500
+                        }}>
+                          Điểm: {player.skillLevel}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Player Slot Component
+interface PlayerSlotProps {
+  player: Player | null;
+  slotNumber: number;
+  teamColor: string;
+  teamLabel: string;
+  onAdd: () => void;
+  onRemove: () => void;
+  disabled?: boolean;
+}
+
+function PlayerSlot({ player, slotNumber, teamColor, teamLabel, onAdd, onRemove, disabled }: PlayerSlotProps) {
+  return (
+    <div style={{
+      border: `2px dashed ${player ? teamColor : "#cbd5e1"}`,
+      borderRadius: 12,
+      padding: 16,
+      background: player ? `${teamColor}10` : "#f8fafc",
+      minHeight: 80,
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "center",
+      transition: "all 0.2s"
+    }}>
+      {player ? (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div style={{ fontSize: 13, color: "#64748b", marginBottom: 4 }}>
+              {teamLabel} - Người chơi {slotNumber}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ 
+                color: player.gender === "male" ? "#2563eb" : "#db2777",
+                fontSize: 18
+              }}>
+                {player.gender === "male" ? "♂" : "♀"}
+              </span>
+              <span style={{ fontWeight: 600, fontSize: 16 }}>{player.name}</span>
+              <span style={{ 
+                color: "#64748b",
+                fontSize: 13,
+                background: "#fff",
+                padding: "2px 8px",
+                borderRadius: 4
+              }}>
+                {player.skillLevel} điểm
+              </span>
+            </div>
+            {player.team && (
+              <div style={{ 
+                fontSize: 12, 
+                color: "#64748b", 
+                marginTop: 4,
+                display: "flex",
+                alignItems: "center",
+                gap: 4
+              }}>
+                <span>👥</span>
+                <span>{player.team}</span>
+              </div>
+            )}
+          </div>
+          <button
+            onClick={onRemove}
+            style={{
+              border: "none",
+              background: "#fee2e2",
+              color: "#dc2626",
+              width: 32,
+              height: 32,
+              borderRadius: "50%",
+              cursor: "pointer",
+              fontSize: 18,
+              fontWeight: 600,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: "all 0.2s"
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "#fecaca";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "#fee2e2";
+            }}
+          >
+            ×
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={onAdd}
+          disabled={disabled}
+          style={{
+            border: "none",
+            background: "transparent",
+            cursor: disabled ? "not-allowed" : "pointer",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 8,
+            opacity: disabled ? 0.5 : 1,
+            width: "100%"
+          }}
+        >
+          <div style={{
+            width: 48,
+            height: 48,
+            borderRadius: "50%",
+            background: disabled ? "#e2e8f0" : teamColor,
+            color: "white",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 24,
+            fontWeight: 300
+          }}>
+            +
+          </div>
+          <span style={{ 
+            fontSize: 14, 
+            color: "#64748b",
+            fontWeight: 500
+          }}>
+            {disabled ? "Chọn người chơi trước" : `Thêm người chơi ${slotNumber}`}
+          </span>
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function MatchCreator({ players, defaultMatchType = "MD", gameMode = "free_play", onCreateMatch, onCancel }: Props) {
   const activePlayers = players.filter((p) => p.isActive);
   const maleCount = activePlayers.filter((p) => p.gender === "male").length;
   const femaleCount = activePlayers.filter((p) => p.gender === "female").length;
   const isTeamMode = gameMode === "team";
 
-  // Find first available match type
   const getFirstAvailableType = (): MatchType => {
     const order: MatchType[] = ["MD", "WD", "XD", "MS", "WS"];
     for (const type of order) {
       if (canPlayMatchType(type, maleCount, femaleCount)) return type;
     }
-    return "MD"; // fallback
+    return "MD";
   };
 
   const initialType = canPlayMatchType(defaultMatchType, maleCount, femaleCount)
@@ -48,99 +410,119 @@ export function MatchCreator({ players, defaultMatchType = "MD", gameMode = "fre
     : getFirstAvailableType();
 
   const [matchType, setMatchType] = useState<MatchType>(initialType);
-  const [teamA, setTeamA] = useState<string[]>([]);
-  const [teamB, setTeamB] = useState<string[]>([]);
+  const [blueTeam, setBlueTeam] = useState<(Player | null)[]>([null, null]);
+  const [redTeam, setRedTeam] = useState<(Player | null)[]>([null, null]);
+  const [showModal, setShowModal] = useState<{ team: "blue" | "red", slot: number } | null>(null);
 
   const config = matchTypeConfig[matchType];
   const playersPerTeam = config.playersPerTeam;
 
-  const selectedIds = new Set([...teamA, ...teamB]);
+  // Get available players for a specific slot
+  const getAvailablePlayersForSlot = (team: "blue" | "red", slotIndex: number): Player[] => {
+    const currentTeam = team === "blue" ? blueTeam : redTeam;
+    const otherTeam = team === "blue" ? redTeam : blueTeam;
+    
+    // Get all selected player IDs
+    const selectedIds = new Set([
+      ...blueTeam.filter(p => p !== null).map(p => p!.id),
+      ...redTeam.filter(p => p !== null).map(p => p!.id)
+    ]);
 
-  // Get gender needs for a team in mixed doubles
-  const getTeamGenderNeed = (team: string[]): "male" | "female" | "any" => {
-    if (config.genderFilter !== "mixed") return "any";
-    if (team.length === 0) return "any";
-    const existingPlayer = players.find((p) => p.id === team[0]);
-    if (!existingPlayer) return "any";
-    // Need the opposite gender
-    return existingPlayer.gender === "male" ? "female" : "male";
-  };
+    let filtered = activePlayers.filter(p => !selectedIds.has(p.id));
 
-  // Get the teams of players in a match side
-  const getTeamsOfPlayers = (playerIds: string[]): Set<string> => {
-    const teams = new Set<string>();
-    for (const id of playerIds) {
-      const player = players.find((p) => p.id === id);
-      if (player?.team) teams.add(player.team);
-    }
-    return teams;
-  };
-
-  // Filter available players based on match type, team needs, and team mode restrictions
-  const getAvailablePlayersForTeam = (thisTeam: string[], otherTeam: string[]) => {
-    let filtered = activePlayers.filter((p) => !selectedIds.has(p.id));
-
-    // Gender filter based on match type
+    // Apply gender filter based on match type
     if (config.genderFilter === "male") {
-      filtered = filtered.filter((p) => p.gender === "male");
+      filtered = filtered.filter(p => p.gender === "male");
     } else if (config.genderFilter === "female") {
-      filtered = filtered.filter((p) => p.gender === "female");
-    } else if (config.genderFilter === "mixed" && thisTeam.length === 1) {
-      // For mixed doubles, need opposite gender
-      const need = getTeamGenderNeed(thisTeam);
-      if (need !== "any") {
-        filtered = filtered.filter((p) => p.gender === need);
+      filtered = filtered.filter(p => p.gender === "female");
+    } else if (config.genderFilter === "mixed") {
+      // For mixed doubles, need opposite gender for the second player
+      if (slotIndex === 1 && currentTeam[0]) {
+        const firstPlayerGender = currentTeam[0].gender;
+        filtered = filtered.filter(p => p.gender !== firstPlayerGender);
       }
     }
 
-    // In team mode, players from the same team cannot be opponents
-    if (isTeamMode && otherTeam.length > 0) {
-      const opponentTeams = getTeamsOfPlayers(otherTeam);
-      if (opponentTeams.size > 0) {
-        // Filter out players who are in the same team as the opponents
-        filtered = filtered.filter((p) => !p.team || !opponentTeams.has(p.team));
+    // TEAM MODE ENFORCEMENT
+    if (isTeamMode && playersPerTeam === 2) {
+      // For the second slot, must be from same team as first player
+      if (slotIndex === 1 && currentTeam[0]) {
+        const firstPlayerTeam = currentTeam[0].team;
+        if (firstPlayerTeam) {
+          filtered = filtered.filter(p => p.team === firstPlayerTeam);
+        }
+      }
+
+      // For red team, exclude the entire blue team
+      if (team === "red") {
+        const bluePlayerWithTeam = blueTeam.find(p => p && p.team);
+        if (bluePlayerWithTeam && bluePlayerWithTeam.team) {
+          filtered = filtered.filter(p => p.team !== bluePlayerWithTeam.team);
+        }
+      }
+
+      // For blue team second slot, if red team has players, ensure different teams
+      if (team === "blue" && slotIndex === 1) {
+        const redPlayerWithTeam = redTeam.find(p => p && p.team);
+        if (redPlayerWithTeam && redPlayerWithTeam.team && currentTeam[0]) {
+          // Already filtered by first player's team above
+        }
       }
     }
 
     return filtered;
   };
 
-  const availablePlayersForA = getAvailablePlayersForTeam(teamA, teamB);
-  const availablePlayersForB = getAvailablePlayersForTeam(teamB, teamA);
-  const availablePlayers = activePlayers.filter((p) => !selectedIds.has(p.id));
-
-  const canCreate = teamA.length === playersPerTeam && teamB.length === playersPerTeam;
-
-  const handleAddToTeam = (playerId: string, team: "a" | "b") => {
-    if (team === "a" && teamA.length < playersPerTeam) {
-      setTeamA([...teamA, playerId]);
-    } else if (team === "b" && teamB.length < playersPerTeam) {
-      setTeamB([...teamB, playerId]);
-    }
+  const handleAddPlayer = (team: "blue" | "red", slotIndex: number) => {
+    setShowModal({ team, slot: slotIndex });
   };
 
-  const handleRemoveFromTeam = (playerId: string, team: "a" | "b") => {
-    if (team === "a") {
-      setTeamA(teamA.filter((id) => id !== playerId));
+  const handleSelectPlayer = (player: Player) => {
+    if (!showModal) return;
+
+    const { team, slot } = showModal;
+    
+    if (team === "blue") {
+      const newTeam = [...blueTeam];
+      newTeam[slot] = player;
+      setBlueTeam(newTeam);
     } else {
-      setTeamB(teamB.filter((id) => id !== playerId));
+      const newTeam = [...redTeam];
+      newTeam[slot] = player;
+      setRedTeam(newTeam);
+    }
+
+    setShowModal(null);
+  };
+
+  const handleRemovePlayer = (team: "blue" | "red", slotIndex: number) => {
+    if (team === "blue") {
+      const newTeam = [...blueTeam];
+      // If removing first player, clear both slots
+      if (slotIndex === 0 && playersPerTeam === 2) {
+        newTeam[0] = null;
+        newTeam[1] = null;
+      } else {
+        newTeam[slotIndex] = null;
+      }
+      setBlueTeam(newTeam);
+    } else {
+      const newTeam = [...redTeam];
+      // If removing first player, clear both slots
+      if (slotIndex === 0 && playersPerTeam === 2) {
+        newTeam[0] = null;
+        newTeam[1] = null;
+      } else {
+        newTeam[slotIndex] = null;
+      }
+      setRedTeam(newTeam);
     }
   };
 
-  const handleCreate = () => {
-    if (!canCreate) return;
-
-    const teamAPlayers = teamA.map((id) => {
-      const p = players.find((pl) => pl.id === id)!;
-      return { id: p.id, name: p.name, gender: p.gender, skillLevel: p.skillLevel };
-    });
-
-    const teamBPlayers = teamB.map((id) => {
-      const p = players.find((pl) => pl.id === id)!;
-      return { id: p.id, name: p.name, gender: p.gender, skillLevel: p.skillLevel };
-    });
-
-    onCreateMatch(teamAPlayers, teamBPlayers, matchType);
+  const handleMatchTypeChange = (type: MatchType) => {
+    setMatchType(type);
+    setBlueTeam([null, null]);
+    setRedTeam([null, null]);
   };
 
   const handleAutoBalance = () => {
@@ -221,8 +603,8 @@ export function MatchCreator({ players, defaultMatchType = "MD", gameMode = "fre
         const goodPairs = balancedPairs.filter((p) => p.diff <= Math.max(minDiff, MAX_DIFF));
         const selected = randomPick(goodPairs);
 
-        setTeamA(selected.teamA.map((p) => p.id));
-        setTeamB(selected.teamB.map((p) => p.id));
+        setBlueTeam([selected.teamA[0], selected.teamA[1]]);
+        setRedTeam([selected.teamB[0], selected.teamB[1]]);
       } else if (playersPerTeam === 2) {
         // Doubles in team mode
         const validTeams: { name: string; players: Player[] }[] = [];
@@ -261,8 +643,8 @@ export function MatchCreator({ players, defaultMatchType = "MD", gameMode = "fre
         const goodPairs = balancedPairs.filter((p) => p.diff <= Math.max(minDiff, MAX_DIFF));
         const selected = randomPick(goodPairs);
 
-        setTeamA(selected.teamA.map((p) => p.id));
-        setTeamB(selected.teamB.map((p) => p.id));
+        setBlueTeam([selected.teamA[0], selected.teamA[1]]);
+        setRedTeam([selected.teamB[0], selected.teamB[1]]);
       } else {
         // Singles in team mode
         const balancedPairs: { teamA: Player; teamB: Player; diff: number }[] = [];
@@ -286,8 +668,8 @@ export function MatchCreator({ players, defaultMatchType = "MD", gameMode = "fre
         const goodPairs = balancedPairs.filter((p) => p.diff <= Math.max(minDiff, MAX_DIFF));
         const selected = randomPick(goodPairs);
 
-        setTeamA([selected.teamA.id]);
-        setTeamB([selected.teamB.id]);
+        setBlueTeam([selected.teamA, null]);
+        setRedTeam([selected.teamB, null]);
       }
     } else {
       // Free play mode - random balanced selection
@@ -319,8 +701,8 @@ export function MatchCreator({ players, defaultMatchType = "MD", gameMode = "fre
         const goodPairs = balancedPairs.filter((p) => p.diff <= Math.max(minDiff, MAX_DIFF));
         const selected = randomPick(goodPairs);
 
-        setTeamA(selected.teamA.map((p) => p.id));
-        setTeamB(selected.teamB.map((p) => p.id));
+        setBlueTeam([selected.teamA[0], selected.teamA[1]]);
+        setRedTeam([selected.teamB[0], selected.teamB[1]]);
       } else if (playersPerTeam === 2) {
         // Doubles (same gender)
         if (eligiblePlayers.length < 4) return;
@@ -348,8 +730,8 @@ export function MatchCreator({ players, defaultMatchType = "MD", gameMode = "fre
         const goodPairs = balancedPairs.filter((p) => p.diff <= Math.max(minDiff, MAX_DIFF));
         const selected = randomPick(goodPairs);
 
-        setTeamA(selected.teamA.map((p) => p.id));
-        setTeamB(selected.teamB.map((p) => p.id));
+        setBlueTeam([selected.teamA[0], selected.teamA[1]]);
+        setRedTeam([selected.teamB[0], selected.teamB[1]]);
       } else {
         // Singles
         if (eligiblePlayers.length < 2) return;
@@ -369,283 +751,351 @@ export function MatchCreator({ players, defaultMatchType = "MD", gameMode = "fre
         const goodPairs = balancedPairs.filter((p) => p.diff <= Math.max(minDiff, MAX_DIFF));
         const selected = randomPick(goodPairs);
 
-        setTeamA([selected.teamA.id]);
-        setTeamB([selected.teamB.id]);
+        setBlueTeam([selected.teamA, null]);
+        setRedTeam([selected.teamB, null]);
       }
     }
   };
 
-  const getPlayerById = (id: string) => players.find((p) => p.id === id);
+  const handleCreate = () => {
+    const bluePlayers = blueTeam.slice(0, playersPerTeam).filter((p): p is Player => p !== null);
+    const redPlayers = redTeam.slice(0, playersPerTeam).filter((p): p is Player => p !== null);
 
-  const teamASkill = teamA.reduce((sum, id) => sum + (getPlayerById(id)?.skillLevel || 0), 0);
-  const teamBSkill = teamB.reduce((sum, id) => sum + (getPlayerById(id)?.skillLevel || 0), 0);
+    if (bluePlayers.length !== playersPerTeam || redPlayers.length !== playersPerTeam) return;
+
+    const blueMatchPlayers: MatchPlayer[] = bluePlayers.map(p => ({
+      id: p.id,
+      name: p.name,
+      gender: p.gender,
+      skillLevel: p.skillLevel
+    }));
+
+    const redMatchPlayers: MatchPlayer[] = redPlayers.map(p => ({
+      id: p.id,
+      name: p.name,
+      gender: p.gender,
+      skillLevel: p.skillLevel
+    }));
+
+    onCreateMatch(blueMatchPlayers, redMatchPlayers, matchType);
+  };
+
+  const blueSkill = blueTeam.reduce((sum, p) => sum + (p?.skillLevel || 0), 0);
+  const redSkill = redTeam.reduce((sum, p) => sum + (p?.skillLevel || 0), 0);
+  const blueComplete = blueTeam.slice(0, playersPerTeam).every(p => p !== null);
+  const redComplete = redTeam.slice(0, playersPerTeam).every(p => p !== null);
+  const canCreate = blueComplete && redComplete;
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: "rgba(0,0,0,0.5)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1000
-      }}
-    >
+    <>
       <div
         style={{
-          background: "white",
-          padding: 24,
-          borderRadius: 12,
-          maxWidth: 600,
-          width: "90%",
-          maxHeight: "90vh",
-          overflowY: "auto"
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(0,0,0,0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000
         }}
       >
-        <h2 style={{ margin: "0 0 16px 0" }}>Tạo trận đấu</h2>
+        <div
+          style={{
+            background: "white",
+            padding: 32,
+            borderRadius: 16,
+            maxWidth: 700,
+            width: "90%",
+            maxHeight: "90vh",
+            overflowY: "auto"
+          }}
+        >
+          <h2 style={{ margin: "0 0 24px 0", fontSize: 24, fontWeight: 700 }}>Tạo trận đấu</h2>
 
-        {/* Match Type Selection */}
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: "block", marginBottom: 8, fontWeight: 500 }}>Loại trận</label>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {(Object.keys(matchTypeConfig) as MatchType[]).map((type) => {
-              const isAvailable = canPlayMatchType(type, maleCount, femaleCount);
-              const isSelected = matchType === type;
-              return (
-                <button
-                  key={type}
-                  onClick={() => {
-                    if (!isAvailable) return;
-                    setMatchType(type);
-                    setTeamA([]);
-                    setTeamB([]);
-                  }}
-                  disabled={!isAvailable}
-                  style={{
-                    padding: "8px 16px",
-                    borderRadius: 8,
-                    border: isSelected ? "2px solid #3b82f6" : "1px solid #e2e8f0",
-                    background: !isAvailable ? "#f1f5f9" : isSelected ? "#eff6ff" : "#fff",
-                    color: !isAvailable ? "#94a3b8" : "#1e293b",
-                    cursor: isAvailable ? "pointer" : "not-allowed",
-                    opacity: isAvailable ? 1 : 0.6
-                  }}
-                >
-                  {matchTypeConfig[type].label}
-                </button>
-              );
-            })}
-          </div>
-          <div className="muted" style={{ marginTop: 8, fontSize: 13 }}>
-            Nam: {maleCount} • Nữ: {femaleCount}
-          </div>
-        </div>
-
-        {/* Teams Selection */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
-          {/* Team A */}
-          <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: 12 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-              <strong style={{ color: "#16a34a" }}>Đội A</strong>
-              <span className="muted">Điểm: {teamASkill}</span>
-            </div>
-            <div style={{ minHeight: 60, marginBottom: 8 }}>
-              {teamA.map((id) => {
-                const p = getPlayerById(id);
-                return p ? (
-                  <div
-                    key={id}
+          {/* Match Type Selection */}
+          <div style={{ marginBottom: 24 }}>
+            <label style={{ display: "block", marginBottom: 12, fontWeight: 600, fontSize: 15 }}>
+              Loại trận đấu
+            </label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+              {(Object.keys(matchTypeConfig) as MatchType[]).map((type) => {
+                const isAvailable = canPlayMatchType(type, maleCount, femaleCount);
+                const isSelected = matchType === type;
+                return (
+                  <button
+                    key={type}
+                    onClick={() => isAvailable && handleMatchTypeChange(type)}
+                    disabled={!isAvailable}
                     style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "6px 8px",
-                      background: "#dcfce7",
-                      borderRadius: 6,
-                      marginBottom: 4
+                      padding: "10px 20px",
+                      borderRadius: 10,
+                      border: isSelected ? "2px solid #3b82f6" : "2px solid #e2e8f0",
+                      background: !isAvailable ? "#f1f5f9" : isSelected ? "#dbeafe" : "#fff",
+                      color: !isAvailable ? "#94a3b8" : isSelected ? "#1e40af" : "#1e293b",
+                      cursor: isAvailable ? "pointer" : "not-allowed",
+                      opacity: isAvailable ? 1 : 0.5,
+                      fontWeight: isSelected ? 600 : 500,
+                      fontSize: 14,
+                      transition: "all 0.2s"
                     }}
                   >
-                    <span>{p.name} ({p.skillLevel})</span>
-                    <button
-                      onClick={() => handleRemoveFromTeam(id, "a")}
-                      style={{ border: "none", background: "transparent", cursor: "pointer", color: "#dc2626" }}
-                    >
-                      ×
-                    </button>
-                  </div>
-                ) : null;
+                    {matchTypeConfig[type].label}
+                  </button>
+                );
               })}
-              {teamA.length === 0 && <div className="muted">Chọn {playersPerTeam} người chơi</div>}
+            </div>
+            <div style={{ marginTop: 10, fontSize: 13, color: "#64748b" }}>
+              👥 Nam: {maleCount} • Nữ: {femaleCount}
+              {isTeamMode && " • Chế độ đội"}
             </div>
           </div>
 
-          {/* Team B */}
-          <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: 12 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-              <strong style={{ color: "#2563eb" }}>Đội B</strong>
-              <span className="muted">Điểm: {teamBSkill}</span>
-            </div>
-            <div style={{ minHeight: 60, marginBottom: 8 }}>
-              {teamB.map((id) => {
-                const p = getPlayerById(id);
-                return p ? (
-                  <div
-                    key={id}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "6px 8px",
-                      background: "#dbeafe",
-                      borderRadius: 6,
-                      marginBottom: 4
-                    }}
-                  >
-                    <span>{p.name} ({p.skillLevel})</span>
-                    <button
-                      onClick={() => handleRemoveFromTeam(id, "b")}
-                      style={{ border: "none", background: "transparent", cursor: "pointer", color: "#dc2626" }}
-                    >
-                      ×
-                    </button>
-                  </div>
-                ) : null;
-              })}
-              {teamB.length === 0 && <div className="muted">Chọn {playersPerTeam} người chơi</div>}
-            </div>
-          </div>
-        </div>
-
-        {/* Skill Balance Indicator */}
-        {teamA.length > 0 && teamB.length > 0 && (
-          <div
-            style={{
-              padding: 8,
-              borderRadius: 6,
-              background: Math.abs(teamASkill - teamBSkill) <= 2 ? "#dcfce7" : "#fef3c7",
-              marginBottom: 16,
-              textAlign: "center"
-            }}
-          >
-            Chênh lệch điểm: {Math.abs(teamASkill - teamBSkill)}
-            {Math.abs(teamASkill - teamBSkill) <= 2 ? " (Cân bằng)" : " (Chưa cân bằng)"}
-          </div>
-        )}
-
-        {/* Available Players */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-            <label style={{ fontWeight: 500 }}>Người chơi ({availablePlayers.length})</label>
-            <button
-              onClick={handleAutoBalance}
-              style={{
-                padding: "12px 20px",
+          {/* Matching Method Selection */}
+          <div style={{ 
+            marginBottom: 24, 
+            padding: 12, 
+            background: "#f8fafc", 
+            borderRadius: 10,
+            border: "1px solid #e2e8f0"
+          }}>
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#64748b", minWidth: "fit-content" }}>
+                Phương thức:
+              </span>
+              <button
+                onClick={handleAutoBalance}
+                style={{
+                  flex: 1,
+                  padding: "8px 16px",
+                  borderRadius: 8,
+                  border: "1px solid #16a34a",
+                  background: "#16a34a",
+                  color: "white",
+                  cursor: "pointer",
+                  fontWeight: 600,
+                  fontSize: 13,
+                  transition: "all 0.2s",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "#15803d";
+                  e.currentTarget.style.transform = "scale(1.02)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "#16a34a";
+                  e.currentTarget.style.transform = "scale(1)";
+                }}
+              >
+                <span>⚡</span>
+                <span>Tự động ghép trận</span>
+              </button>
+              <div style={{
+                flex: 1,
+                padding: "8px 16px",
                 borderRadius: 8,
-                border: "none",
-                background: "#16a34a",
-                color: "white",
-                cursor: "pointer",
-                fontSize: 15,
-                fontWeight: 600
+                border: "1px solid #cbd5e1",
+                background: "white",
+                color: "#64748b",
+                fontWeight: 500,
+                fontSize: 13,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6
+              }}>
+                <span>✋</span>
+                <span>Chọn thủ công</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Team Selection Area */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 24 }}>
+            {/* Blue Team */}
+            <div>
+              <div style={{ 
+                display: "flex", 
+                justifyContent: "space-between", 
+                alignItems: "center",
+                marginBottom: 12
+              }}>
+                <h3 style={{ 
+                  margin: 0, 
+                  color: "#1e40af",
+                  fontSize: 16,
+                  fontWeight: 700,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8
+                }}>
+                  <span style={{ fontSize: 20 }}>🔵</span>
+                  Đội Xanh
+                </h3>
+                <span style={{ 
+                  fontSize: 14,
+                  color: "#64748b",
+                  background: "#f1f5f9",
+                  padding: "4px 10px",
+                  borderRadius: 6,
+                  fontWeight: 600
+                }}>
+                  {blueSkill} điểm
+                </span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {Array.from({ length: playersPerTeam }).map((_, idx) => (
+                  <PlayerSlot
+                    key={idx}
+                    player={blueTeam[idx]}
+                    slotNumber={idx + 1}
+                    teamColor="#3b82f6"
+                    teamLabel="Đội Xanh"
+                    onAdd={() => handleAddPlayer("blue", idx)}
+                    onRemove={() => handleRemovePlayer("blue", idx)}
+                    disabled={idx === 1 && !blueTeam[0]}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Red Team */}
+            <div>
+              <div style={{ 
+                display: "flex", 
+                justifyContent: "space-between", 
+                alignItems: "center",
+                marginBottom: 12
+              }}>
+                <h3 style={{ 
+                  margin: 0, 
+                  color: "#dc2626",
+                  fontSize: 16,
+                  fontWeight: 700,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8
+                }}>
+                  <span style={{ fontSize: 20 }}>🔴</span>
+                  Đội Đỏ
+                </h3>
+                <span style={{ 
+                  fontSize: 14,
+                  color: "#64748b",
+                  background: "#f1f5f9",
+                  padding: "4px 10px",
+                  borderRadius: 6,
+                  fontWeight: 600
+                }}>
+                  {redSkill} điểm
+                </span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {Array.from({ length: playersPerTeam }).map((_, idx) => (
+                  <PlayerSlot
+                    key={idx}
+                    player={redTeam[idx]}
+                    slotNumber={idx + 1}
+                    teamColor="#ef4444"
+                    teamLabel="Đội Đỏ"
+                    onAdd={() => handleAddPlayer("red", idx)}
+                    onRemove={() => handleRemovePlayer("red", idx)}
+                    disabled={idx === 1 && !redTeam[0]}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Balance Indicator */}
+          {blueComplete && redComplete && (
+            <div
+              style={{
+                padding: 14,
+                borderRadius: 10,
+                background: Math.abs(blueSkill - redSkill) <= 2 ? "#dcfce7" : "#fef3c7",
+                marginBottom: 24,
+                textAlign: "center",
+                border: `2px solid ${Math.abs(blueSkill - redSkill) <= 2 ? "#86efac" : "#fde047"}`,
+                fontWeight: 600,
+                fontSize: 14
               }}
             >
-              Tự động cân bằng
+              {Math.abs(blueSkill - redSkill) <= 2 ? "✓" : "⚠"} Chênh lệch điểm: {Math.abs(blueSkill - redSkill)}
+              {Math.abs(blueSkill - redSkill) <= 2 ? " - Cân bằng tốt!" : " - Chưa cân bằng"}
+            </div>
+          )}
+
+          {/* Actions */}
+          <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+            <button
+              onClick={onCancel}
+              style={{
+                padding: "12px 24px",
+                borderRadius: 10,
+                border: "2px solid #e2e8f0",
+                background: "white",
+                cursor: "pointer",
+                fontWeight: 600,
+                fontSize: 15,
+                color: "#64748b",
+                transition: "all 0.2s"
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "#f8fafc";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "white";
+              }}
+            >
+              Hủy
+            </button>
+            <button
+              onClick={handleCreate}
+              disabled={!canCreate}
+              style={{
+                padding: "12px 32px",
+                borderRadius: 10,
+                border: "none",
+                background: canCreate ? "#3b82f6" : "#cbd5e1",
+                color: "white",
+                cursor: canCreate ? "pointer" : "not-allowed",
+                fontWeight: 700,
+                fontSize: 15,
+                transition: "all 0.2s"
+              }}
+              onMouseEnter={(e) => {
+                if (canCreate) {
+                  e.currentTarget.style.background = "#2563eb";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (canCreate) {
+                  e.currentTarget.style.background = "#3b82f6";
+                }
+              }}
+            >
+              Tạo trận đấu
             </button>
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {availablePlayers.map((p) => {
-              const canAddToA = teamA.length < playersPerTeam && availablePlayersForA.some((ap) => ap.id === p.id);
-              const canAddToB = teamB.length < playersPerTeam && availablePlayersForB.some((ap) => ap.id === p.id);
-
-              return (
-                <div
-                  key={p.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 4,
-                    padding: "6px 10px",
-                    borderRadius: 6,
-                    border: "1px solid #e2e8f0",
-                    background: "#fff"
-                  }}
-                >
-                  <span style={{ color: p.gender === "male" ? "#2563eb" : "#db2777" }}>{p.gender === "male" ? "♂" : "♀"}</span>
-                  <span>{p.name}</span>
-                  <span className="muted">({p.skillLevel})</span>
-                  <button
-                    onClick={() => handleAddToTeam(p.id, "a")}
-                    disabled={!canAddToA}
-                    style={{
-                      padding: "2px 6px",
-                      borderRadius: 4,
-                      border: "none",
-                      background: canAddToA ? "#16a34a" : "#cbd5e1",
-                      color: "white",
-                      cursor: canAddToA ? "pointer" : "not-allowed",
-                      fontSize: 12
-                    }}
-                  >
-                    A
-                  </button>
-                  <button
-                    onClick={() => handleAddToTeam(p.id, "b")}
-                    disabled={!canAddToB}
-                    style={{
-                      padding: "2px 6px",
-                      borderRadius: 4,
-                      border: "none",
-                      background: canAddToB ? "#2563eb" : "#cbd5e1",
-                      color: "white",
-                      cursor: canAddToB ? "pointer" : "not-allowed",
-                      fontSize: 12
-                    }}
-                  >
-                    B
-                  </button>
-                </div>
-              );
-            })}
-            {availablePlayers.length === 0 && (
-              <div className="muted">Không còn người chơi khả dụng</div>
-            )}
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
-          <button
-            onClick={onCancel}
-            style={{
-              padding: "10px 20px",
-              borderRadius: 8,
-              border: "1px solid #e2e8f0",
-              background: "#f8fafc",
-              cursor: "pointer"
-            }}
-          >
-            Hủy
-          </button>
-          <button
-            onClick={handleCreate}
-            disabled={!canCreate}
-            style={{
-              padding: "10px 20px",
-              borderRadius: 8,
-              border: "none",
-              background: canCreate ? "#3b82f6" : "#cbd5e1",
-              color: "white",
-              cursor: canCreate ? "pointer" : "not-allowed"
-            }}
-          >
-            Tạo trận
-          </button>
         </div>
       </div>
-    </div>
+
+      {/* Player Selection Modal */}
+      {showModal && (
+        <PlayerSelectionModal
+          players={getAvailablePlayersForSlot(showModal.team, showModal.slot)}
+          onSelect={handleSelectPlayer}
+          onClose={() => setShowModal(null)}
+          title={`Chọn người chơi cho ${showModal.team === "blue" ? "Đội Xanh" : "Đội Đỏ"} - Vị trí ${showModal.slot + 1}`}
+          teamColor={showModal.team === "blue" ? "#3b82f6" : "#ef4444"}
+        />
+      )}
+    </>
   );
 }

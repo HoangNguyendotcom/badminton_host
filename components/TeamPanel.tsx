@@ -5,23 +5,24 @@ interface Props {
   color: string;
   players: Player[];
   stats: TeamStats;
+  points?: number;
   moveOptions?: string[];
   onMovePlayer?: (id: string, target: string | null) => void;
 }
 
-export function TeamPanel({ title, color, players, stats, moveOptions = [], onMovePlayer }: Props) {
+export function TeamPanel({ title, color, players, stats, points = 0, moveOptions = [], onMovePlayer }: Props) {
   return (
     <div className="card" style={{ borderColor: color }}>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
           <div style={{ width: 12, height: 12, borderRadius: "50%", background: color }} />
           <strong>
-            {title} · {stats.totalSkill} điểm
+            {title} | Trình độ: {stats.totalSkill} | {points} điểm
           </strong>
         </div>
-        <span className="muted">
+        <div className="muted" style={{ paddingLeft: 20 }}>
           {stats.count} người · {stats.male} nam · {stats.female} nữ
-        </span>
+        </div>
       </div>
       {players.length === 0 ? (
         <div className="muted">Chưa có thành viên.</div>
@@ -81,4 +82,3 @@ export function TeamPanel({ title, color, players, stats, moveOptions = [], onMo
     </div>
   );
 }
-

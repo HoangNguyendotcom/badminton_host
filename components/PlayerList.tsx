@@ -32,7 +32,7 @@ export function PlayerList({ players, moveOptions, onAssign, onToggleActive, onE
             <tr>
               <th>Tên</th>
               <th>Giới tính</th>
-              <th>Điểm</th>
+              <th>Trình độ</th>
               <th>Trạng thái</th>
               <th>Đội</th>
               <th>Edit</th>
