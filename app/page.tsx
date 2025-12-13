@@ -4,9 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import { PlayerForm } from "@/components/PlayerForm";
 import { PlayerList } from "@/components/PlayerList";
 import { TeamPanel } from "@/components/TeamPanel";
-import { generateSessionCode, loadSession, saveSession } from "@/lib/sessionStore";
+import { ModeSelector } from "@/components/ModeSelector";
+import { MatchCreator } from "@/components/MatchCreator";
+import { MatchList } from "@/components/MatchList";
+import { MatchScoreModal } from "@/components/MatchScoreModal";
+import { WelcomeScreen } from "@/components/WelcomeScreen";
+import { generateSessionCode, loadSession, saveSession, loadSessionSync, saveSessionSync, clearSessionData } from "@/lib/sessionStore";
 import { splitTeams } from "@/lib/teamSplitter";
-import type { Player, SplitResult } from "@/types";
+import type { Player, SplitResult, GameMode, TournamentFormat, MatchType, Match, MatchPlayer } from "@/types";
 
 const LAST_SESSION_KEY = "badminton-last-session";
 
@@ -55,29 +60,74 @@ export default function Page() {
     isActive: true,
     team: null as string | null
   });
+  const [gameMode, setGameMode] = useState<GameMode>("team");
+  const [tournamentFormat, setTournamentFormat] = useState<TournamentFormat | undefined>();
+  const [matchType, setMatchType] = useState<MatchType | undefined>();
+  const [showModeSelector, setShowModeSelector] = useState(false);
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [showMatchCreator, setShowMatchCreator] = useState(false);
+  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+  const [showWelcome, setShowWelcome] = useState(true);
 
-  // Load last session if available
+  // Load session on refresh (check sessionStorage for active session)
   useEffect(() => {
-    const last = typeof window !== "undefined" ? localStorage.getItem(LAST_SESSION_KEY) : null;
-    if (last) {
-      const existing = loadSession(last);
-      if (existing) {
-        setSessionCode(existing.sessionCode);
-        setInputSession(existing.sessionCode);
-        setPlayers(existing.players);
-        return;
+    const loadActiveSession = async () => {
+      // Check if there's an active session (survives refresh, cleared on window close)
+      const activeSession = typeof window !== "undefined"
+        ? sessionStorage.getItem("badminton-active-session")
+        : null;
+
+      if (activeSession) {
+        // Refresh case: load session data
+        const localSession = loadSessionSync(activeSession);
+        if (localSession) {
+          setSessionCode(localSession.sessionCode);
+          setInputSession(localSession.sessionCode);
+          setPlayers(localSession.players);
+          setGameMode(localSession.gameMode || "team");
+          setTournamentFormat(localSession.tournamentFormat);
+          setMatchType(localSession.matchType);
+          setMatches(localSession.matches || []);
+          setShowWelcome(false);
+        }
+        // Also try async load from Supabase for latest data
+        const existing = await loadSession(activeSession);
+        if (existing) {
+          setSessionCode(existing.sessionCode);
+          setInputSession(existing.sessionCode);
+          setPlayers(existing.players);
+          setGameMode(existing.gameMode || "team");
+          setTournamentFormat(existing.tournamentFormat);
+          setMatchType(existing.matchType);
+          setMatches(existing.matches || []);
+          setShowWelcome(false);
+        }
       }
-    }
-    setInputSession(sessionCode);
+      // else: showWelcome remains true, display welcome screen
+    };
+    loadActiveSession();
   }, []);
 
   useEffect(() => {
-    // Persist current session to localStorage; Supabase integration TBD
-    saveSession({ sessionCode, players, lastSplitAt: split ? new Date().toISOString() : undefined });
+    // Save to localStorage immediately for fast access
+    const sessionData = {
+      sessionCode,
+      players,
+      lastSplitAt: split ? new Date().toISOString() : undefined,
+      gameMode,
+      tournamentFormat,
+      matchType,
+      matches
+    };
+    saveSessionSync(sessionData);
+
+    // Also save to Supabase in background
+    saveSession(sessionData).catch(console.error);
+
     if (typeof window !== "undefined") {
       localStorage.setItem(LAST_SESSION_KEY, sessionCode);
     }
-  }, [sessionCode, players, split]);
+  }, [sessionCode, players, split, gameMode, tournamentFormat, matchType, matches]);
 
   const computedSplit = useMemo(() => {
     if (split) return split;
@@ -115,25 +165,79 @@ export default function Page() {
   };
 
   const handleNewSession = () => {
-    const code = generateSessionCode();
+    setShowModeSelector(true);
+  };
+
+  const handleModeSelect = (mode: GameMode, format?: TournamentFormat, type?: MatchType) => {
+    // Clear old session data from localStorage
+    const oldSession = typeof window !== "undefined" ? localStorage.getItem(LAST_SESSION_KEY) : null;
+    if (oldSession) {
+      clearSessionData(oldSession);
+      localStorage.removeItem(LAST_SESSION_KEY);
+    }
+
+    // Generate new session code (or use inputSession if joining)
+    const code = inputSession.length === 6 ? inputSession : generateSessionCode();
+
+    // Set active session in sessionStorage (survives refresh, cleared on window close)
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("badminton-active-session", code);
+    }
+
     setSessionCode(code);
     setInputSession(code);
     setPlayers([]);
     setSplit(null);
+    setMatches([]);
+    setGameMode(mode);
+    setTournamentFormat(format);
+    setMatchType(type);
+    setShowModeSelector(false);
+    setShowWelcome(false);
   };
 
-  const handleJoinSession = () => {
-    const trimmed = inputSession.trim().toUpperCase();
+  const handleJoinSession = async (codeOverride?: string) => {
+    const trimmed = (codeOverride || inputSession).trim().toUpperCase();
     if (!trimmed || trimmed.length !== 6) return;
-    const existing = loadSession(trimmed);
+
+    let foundSession = false;
+
+    // First try sync load for instant feedback
+    const localSession = loadSessionSync(trimmed);
+    if (localSession) {
+      setSessionCode(localSession.sessionCode);
+      setPlayers(localSession.players);
+      setSplit(null);
+      setGameMode(localSession.gameMode || "team");
+      setTournamentFormat(localSession.tournamentFormat);
+      setMatchType(localSession.matchType);
+      setMatches(localSession.matches || []);
+      foundSession = true;
+    }
+
+    // Then try async load from Supabase
+    const existing = await loadSession(trimmed);
     if (existing) {
       setSessionCode(existing.sessionCode);
       setPlayers(existing.players);
       setSplit(null);
+      setGameMode(existing.gameMode || "team");
+      setTournamentFormat(existing.tournamentFormat);
+      setMatchType(existing.matchType);
+      setMatches(existing.matches || []);
+      foundSession = true;
+    }
+
+    if (foundSession) {
+      // Set active session in sessionStorage
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("badminton-active-session", trimmed);
+      }
+      setShowWelcome(false);
     } else {
-      setSessionCode(trimmed);
-      setPlayers([]);
-      setSplit(null);
+      // No session found anywhere - show mode selector for new session
+      setInputSession(trimmed);
+      setShowModeSelector(true);
     }
   };
 
@@ -183,13 +287,88 @@ export default function Page() {
 
   const closeEdit = () => setEditingPlayer(null);
 
+  const handleCreateMatch = (teamA: MatchPlayer[], teamB: MatchPlayer[], type: MatchType) => {
+    const newMatch: Match = {
+      id: crypto.randomUUID(),
+      matchType: type,
+      status: "pending",
+      teamA,
+      teamB,
+      scoreA: null,
+      scoreB: null,
+      winner: null,
+      playedAt: null,
+      createdAt: new Date().toISOString(),
+    };
+    setMatches((prev) => [newMatch, ...prev]);
+    setShowMatchCreator(false);
+  };
+
+  const handleDeleteMatch = (matchId: string) => {
+    setMatches((prev) => prev.filter((m) => m.id !== matchId));
+  };
+
+  const handleSaveMatchScore = (matchId: string, scoreA: number, scoreB: number) => {
+    setMatches((prev) =>
+      prev.map((m) =>
+        m.id === matchId
+          ? {
+              ...m,
+              scoreA,
+              scoreB,
+              status: "completed" as const,
+              winner: scoreA > scoreB ? "a" : scoreB > scoreA ? "b" : null,
+              playedAt: new Date().toISOString(),
+            }
+          : m
+      )
+    );
+    setSelectedMatch(null);
+  };
+
+  if (showWelcome) {
+    return (
+      <>
+        <WelcomeScreen
+          onJoinSession={handleJoinSession}
+          onCreateNew={handleNewSession}
+        />
+        {showModeSelector && (
+          <ModeSelector
+            onSelect={handleModeSelect}
+            onCancel={() => setShowModeSelector(false)}
+          />
+        )}
+      </>
+    );
+  }
+
   return (
     <main style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 16px", display: "grid", gap: 16 }}>
       <header className="card" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <div className="muted">Mã session</div>
-            <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: 2 }}>{sessionCode}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: 24, fontWeight: 700, letterSpacing: 2 }}>{sessionCode}</span>
+              <span
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  background: gameMode === "team" ? "#dcfce7" : gameMode === "free_play" ? "#dbeafe" : "#fef3c7",
+                  color: gameMode === "team" ? "#166534" : gameMode === "free_play" ? "#1e40af" : "#92400e"
+                }}
+              >
+                {gameMode === "team" ? "Chia đội" : gameMode === "free_play" ? "Chơi tự do" : "Giải đấu"}
+                {gameMode === "tournament" && tournamentFormat && (
+                  <span style={{ marginLeft: 4 }}>
+                    ({tournamentFormat === "round_robin" ? "Vòng tròn" : tournamentFormat === "single_elimination" ? "Loại trực tiếp" : "Loại kép"})
+                  </span>
+                )}
+              </span>
+            </div>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <input
@@ -200,7 +379,7 @@ export default function Page() {
               style={{ padding: 10, borderRadius: 8, border: "1px solid #e2e8f0", width: 140, textTransform: "uppercase" }}
             />
             <button
-              onClick={handleJoinSession}
+              onClick={() => handleJoinSession()}
               style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid #e2e8f0", background: "#edf2f7" }}
             >
               Vào session
@@ -214,68 +393,123 @@ export default function Page() {
           </div>
         </div>
         <div className="muted">
-          Lưu ý: dữ liệu đang lưu tạm trên trình duyệt. Kết nối Supabase sẽ được bổ sung sau (TODO).
+          Dữ liệu được lưu trên trình duyệt và đồng bộ với Supabase (nếu đã cấu hình).
         </div>
       </header>
 
       <div className="grid grid-2">
         <PlayerForm onAdd={handleAddPlayer} />
-        <div className="card" style={{ display: "grid", gap: 12, alignContent: "start" }}>
-          <strong>Chia đội tự động</strong>
-          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-            <div style={{ display: "grid", gap: 6 }}>
-              <label className="muted">Số đội</label>
-              <input
-                type="number"
-                min={2}
-                max={6}
-                value={teamCount}
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  setTeamCount(Number.isFinite(v) ? Math.max(2, Math.min(6, v)) : 2);
-                  setSplit(null);
-                }}
-                style={{ width: 90, padding: 10, borderRadius: 8, border: "1px solid #e2e8f0" }}
-              />
+
+        {gameMode === "team" && (
+          <div className="card" style={{ display: "grid", gap: 12, alignContent: "start" }}>
+            <strong>Chia đội tự động</strong>
+            <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ display: "grid", gap: 6 }}>
+                <label className="muted">Số đội</label>
+                <select
+                  value={teamCount}
+                  onChange={(e) => {
+                    setTeamCount(Number(e.target.value));
+                    setSplit(null);
+                  }}
+                  style={{ padding: 10, borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 14, minWidth: 80 }}
+                >
+                  {[2, 3, 4, 5, 6].map((n) => (
+                    <option key={n} value={n}>{n} đội</option>
+                  ))}
+                </select>
+              </div>
+              <div className="muted">
+                Thuật toán cân bằng số người, giới tính, và chênh lệch điểm ≤ 5 nếu có thể. Cần tối thiểu{" "}
+                {teamCount * 2} người cho {teamCount} đội.
+              </div>
             </div>
-            <div className="muted">
-              Thuật toán cân bằng số người, giới tính, và chênh lệch điểm ≤ 5 nếu có thể. Cần tối thiểu{" "}
-              {teamCount * 2} người cho {teamCount} đội.
-            </div>
-          </div>
-          <button
-            onClick={handleSplit}
-            disabled={!canSplit}
-            style={{
-              padding: "12px 14px",
-              borderRadius: 10,
-              border: "none",
-              background: canSplit ? "#2563eb" : "#cbd5e1",
-              color: canSplit ? "white" : "#475569",
-              fontWeight: 600
-            }}
-          >
-            {canSplit ? "Chia đội" : "Thiếu người chơi"}
-          </button>
-          {computedSplit.warnings.length > 0 && (
-            <div
+            <button
+              onClick={handleSplit}
+              disabled={!canSplit}
               style={{
-                border: "1px solid #fecdd3",
-                background: "#fff1f2",
-                padding: 12,
+                padding: "12px 14px",
                 borderRadius: 10,
-                color: "#b91c1c"
+                border: "none",
+                background: canSplit ? "#2563eb" : "#cbd5e1",
+                color: canSplit ? "white" : "#475569",
+                fontWeight: 600
               }}
             >
-              <strong>Cảnh báo</strong>
-              <ul style={{ margin: "8px 0 0 16px" }}>
-                {computedSplit.warnings.map((w) => (
-                  <li key={w}>{w}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
+              {canSplit ? "Chia đội" : "Thiếu người chơi"}
+            </button>
+            {computedSplit.warnings.length > 0 && (
+              <div
+                style={{
+                  border: "1px solid #fecdd3",
+                  background: "#fff1f2",
+                  padding: 12,
+                  borderRadius: 10,
+                  color: "#b91c1c"
+                }}
+              >
+                <strong>Cảnh báo</strong>
+                <ul style={{ margin: "8px 0 0 16px" }}>
+                  {computedSplit.warnings.map((w) => (
+                    <li key={w}>{w}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
+        {gameMode === "free_play" && (
+          <div className="card" style={{ display: "grid", gap: 12, alignContent: "start" }}>
+            <strong>Chơi tự do</strong>
+            <p className="muted" style={{ margin: 0 }}>
+              Người chơi tự do ghép cặp cho mỗi trận. Thêm người chơi bên trái, sau đó tạo trận đấu.
+            </p>
+            <button
+              onClick={() => setShowMatchCreator(true)}
+              disabled={players.filter(p => p.isActive).length < 2}
+              style={{
+                padding: "12px 14px",
+                borderRadius: 10,
+                border: "none",
+                background: players.filter(p => p.isActive).length >= 2 ? "#3b82f6" : "#cbd5e1",
+                color: players.filter(p => p.isActive).length >= 2 ? "white" : "#475569",
+                fontWeight: 600
+              }}
+            >
+              Tạo trận đấu
+            </button>
+          </div>
+        )}
+
+        {gameMode === "tournament" && (
+          <div className="card" style={{ display: "grid", gap: 12, alignContent: "start" }}>
+            <strong>Giải đấu</strong>
+            <p className="muted" style={{ margin: 0 }}>
+              Thể thức: {tournamentFormat === "round_robin" ? "Vòng tròn" : tournamentFormat === "single_elimination" ? "Loại trực tiếp" : "Loại kép"}
+              {matchType && ` • ${
+                matchType === "MS" ? "Đơn Nam" :
+                matchType === "WS" ? "Đơn Nữ" :
+                matchType === "XD" ? "Đôi Nam Nữ" :
+                matchType === "MD" ? "Đôi Nam" :
+                matchType === "WD" ? "Đôi Nữ" : matchType
+              }`}
+            </p>
+            <button
+              disabled={players.filter(p => p.isActive).length < 2}
+              style={{
+                padding: "12px 14px",
+                borderRadius: 10,
+                border: "none",
+                background: players.filter(p => p.isActive).length >= 2 ? "#f59e0b" : "#cbd5e1",
+                color: players.filter(p => p.isActive).length >= 2 ? "white" : "#475569",
+                fontWeight: 600
+              }}
+            >
+              Tạo bảng đấu (Sắp ra mắt)
+            </button>
+          </div>
+        )}
       </div>
 
       <PlayerList
@@ -287,19 +521,68 @@ export default function Page() {
         onRemove={handleRemove}
       />
 
-      <div className="grid grid-2">
-        {computedSplit.teams.map((team, idx) => (
-          <TeamPanel
-            key={team.name}
-            title={team.name}
-            color={palette[idx % palette.length]}
-            players={team.players}
-            stats={team.stats}
-            moveOptions={computedSplit.teams.map((t) => t.name)}
-            onMovePlayer={handleMovePlayer}
+      {gameMode === "free_play" && matches.length > 0 && (
+        <div className="card">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <strong>Danh sách trận đấu ({matches.length})</strong>
+          </div>
+          <MatchList
+            matches={matches}
+            onSelectMatch={setSelectedMatch}
+            onDeleteMatch={handleDeleteMatch}
           />
-        ))}
-      </div>
+        </div>
+      )}
+
+      {gameMode === "team" && (
+        <div className="grid grid-2">
+          {computedSplit.teams.map((team, idx) => (
+            <TeamPanel
+              key={team.name}
+              title={team.name}
+              color={palette[idx % palette.length]}
+              players={team.players}
+              stats={team.stats}
+              moveOptions={computedSplit.teams.map((t) => t.name)}
+              onMovePlayer={handleMovePlayer}
+            />
+          ))}
+        </div>
+      )}
+
+      {gameMode === "team" && (
+        <div className="card">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: matches.length > 0 ? 12 : 0 }}>
+            <strong>Trận đấu {matches.length > 0 && `(${matches.length})`}</strong>
+            <button
+              onClick={() => setShowMatchCreator(true)}
+              disabled={players.filter(p => p.isActive).length < 2}
+              style={{
+                padding: "10px 16px",
+                borderRadius: 8,
+                border: "none",
+                background: players.filter(p => p.isActive).length >= 2 ? "#3b82f6" : "#cbd5e1",
+                color: players.filter(p => p.isActive).length >= 2 ? "white" : "#475569",
+                fontWeight: 600,
+                fontSize: 14
+              }}
+            >
+              + Tạo trận đấu
+            </button>
+          </div>
+          {matches.length > 0 ? (
+            <MatchList
+              matches={matches}
+              onSelectMatch={setSelectedMatch}
+              onDeleteMatch={handleDeleteMatch}
+            />
+          ) : (
+            <p className="muted" style={{ margin: 0, textAlign: "center", padding: 16 }}>
+              Chưa có trận đấu nào. Bấm "Tạo trận đấu" để bắt đầu.
+            </p>
+          )}
+        </div>
+      )}
 
       {editingPlayer && (
         <div className="modal-backdrop" onClick={closeEdit}>
@@ -320,15 +603,16 @@ export default function Page() {
                 />
               </div>
               <div style={{ display: "grid", gap: 6 }}>
-                <label>Điểm (1-10)</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={10}
+                <label>Điểm trình độ</label>
+                <select
                   value={editForm.skill}
                   onChange={(e) => setEditForm((f) => ({ ...f, skill: Number(e.target.value) }))}
                   style={{ padding: 10, borderRadius: 8, border: "1px solid #e2e8f0" }}
-                />
+                >
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
               </div>
               <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(140px,1fr))" }}>
                 <div style={{ display: "grid", gap: 6 }}>
@@ -389,6 +673,31 @@ export default function Page() {
             </div>
           </div>
         </div>
+      )}
+
+      {showModeSelector && (
+        <ModeSelector
+          onSelect={handleModeSelect}
+          onCancel={() => setShowModeSelector(false)}
+        />
+      )}
+
+      {showMatchCreator && (
+        <MatchCreator
+          players={players}
+          defaultMatchType="MD"
+          gameMode={gameMode}
+          onCreateMatch={handleCreateMatch}
+          onCancel={() => setShowMatchCreator(false)}
+        />
+      )}
+
+      {selectedMatch && (
+        <MatchScoreModal
+          match={selectedMatch}
+          onSave={handleSaveMatchScore}
+          onCancel={() => setSelectedMatch(null)}
+        />
       )}
     </main>
   );

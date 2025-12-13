@@ -46,16 +46,17 @@ export function PlayerForm({ onAdd }: Props) {
           </select>
         </div>
         <div style={{ display: "grid", gap: 6 }}>
-          <label htmlFor="skill">Điểm trình độ (1-10)</label>
-          <input
+          <label htmlFor="skill">Điểm trình độ</label>
+          <select
             id="skill"
-            type="number"
-            min={1}
-            max={10}
             value={skillLevel}
             onChange={(e) => setSkillLevel(Number(e.target.value))}
             style={{ padding: 10, borderRadius: 8, border: "1px solid #e2e8f0", width: "100%" }}
-          />
+          >
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
         </div>
       </div>
       <button
