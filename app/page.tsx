@@ -446,11 +446,11 @@ export default function Page() {
   return (
     <main style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 16px", display: "grid", gap: 16 }}>
       <header className="card" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div className="header-content">
           <div>
             <div className="muted">Mã session</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <span style={{ fontSize: 24, fontWeight: 700, letterSpacing: 2 }}>{sessionCode}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <span className="session-code" style={{ fontSize: 24, fontWeight: 700, letterSpacing: 2 }}>{sessionCode}</span>
               <span
                 style={{
                   padding: "4px 10px",
@@ -470,13 +470,13 @@ export default function Page() {
               </span>
             </div>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div className="header-actions">
             <input
               value={inputSession}
               onChange={(e) => setInputSession(e.target.value.toUpperCase())}
               placeholder="Nhập mã 6 ký tự"
               maxLength={6}
-              style={{ padding: 10, borderRadius: 8, border: "1px solid #e2e8f0", width: 140, textTransform: "uppercase" }}
+              style={{ padding: 10, borderRadius: 8, border: "1px solid #e2e8f0", textTransform: "uppercase" }}
             />
             <button
               onClick={() => handleJoinSession()}

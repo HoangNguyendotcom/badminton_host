@@ -73,18 +73,82 @@ button {
   background: #f7fafc;
 }
 
+/* Header classes for responsive layout */
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 @media (max-width: 640px) {
   body {
     padding: 0 8px;
+  }
+
+  main {
+    padding: 16px 12px !important;
   }
 
   .card {
     padding: 12px;
   }
 
+  /* Header stacks vertically on mobile */
+  .header-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .header-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .header-actions input,
+  .header-actions button {
+    width: 100%;
+  }
+
+  /* Grid becomes single column on mobile */
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+
+  /* Larger touch targets for mobile */
+  button {
+    min-height: 44px;
+    padding: 12px 16px !important;
+  }
+
+  input,
+  select {
+    min-height: 44px;
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+
+  /* Table improvements */
   .table th,
   .table td {
     padding: 8px 6px;
+    font-size: 13px;
+  }
+
+  /* Session code smaller on mobile */
+  .session-code {
+    font-size: 20px !important;
+  }
+
+  /* Modal full width on mobile */
+  .modal {
+    width: calc(100% - 32px);
+    max-width: none;
   }
 }
 
