@@ -286,9 +286,6 @@ function PlayerSlot({ player, slotNumber, teamColor, teamLabel, onAdd, onRemove,
       {player ? (
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <div style={{ fontSize: 13, color: "#64748b", marginBottom: 4 }}>
-              {teamLabel} - Người chơi {slotNumber}
-            </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ 
                 color: player.gender === "male" ? "#2563eb" : "#db2777",
