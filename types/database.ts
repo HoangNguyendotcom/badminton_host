@@ -8,6 +8,7 @@ export interface DbSession {
   tournament_format: TournamentFormat | null;
   match_type_default: MatchType | null;
   skill_diff_threshold: number;
+  address: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -93,6 +94,7 @@ export type Database = {
           tournament_format?: TournamentFormat | null;
           match_type_default?: MatchType | null;
           skill_diff_threshold?: number;
+          address?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -103,6 +105,7 @@ export type Database = {
           tournament_format?: TournamentFormat | null;
           match_type_default?: MatchType | null;
           skill_diff_threshold?: number;
+          address?: string | null;
           updated_at?: string;
         };
         Relationships: [];

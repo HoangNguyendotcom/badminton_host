@@ -9,6 +9,7 @@ export interface CreateSessionInput {
   tournamentFormat?: TournamentFormat;
   matchType?: MatchType;
   skillDiffThreshold?: number;
+  address?: string;
 }
 
 export interface SessionWithPlayers extends DbSession {
@@ -34,6 +35,7 @@ export async function createSession(input: CreateSessionInput): Promise<DbSessio
       tournament_format: input.tournamentFormat || null,
       match_type_default: input.matchType || null,
       skill_diff_threshold: input.skillDiffThreshold ?? 5,
+      address: input.address || null,
     })
     .select()
     .single();

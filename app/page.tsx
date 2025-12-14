@@ -70,6 +70,7 @@ export default function Page() {
   const [gameMode, setGameMode] = useState<GameMode>("team");
   const [tournamentFormat, setTournamentFormat] = useState<TournamentFormat | undefined>();
   const [matchType, setMatchType] = useState<MatchType | undefined>();
+  const [address, setAddress] = useState<string | undefined>();
   const [showModeSelector, setShowModeSelector] = useState(false);
   const [matches, setMatches] = useState<Match[]>([]);
   const [showMatchCreator, setShowMatchCreator] = useState(false);
@@ -121,6 +122,7 @@ export default function Page() {
           setGameMode(localSession.gameMode || "team");
           setTournamentFormat(localSession.tournamentFormat);
           setMatchType(localSession.matchType);
+          setAddress(localSession.address);
           setMatches(localSession.matches || []);
           setTournament(localSession.tournament || null);
           setShowWelcome(false);
@@ -135,6 +137,7 @@ export default function Page() {
           setGameMode(existing.gameMode || "team");
           setTournamentFormat(existing.tournamentFormat);
           setMatchType(existing.matchType);
+          setAddress(existing.address);
           setMatches(existing.matches || []);
           setTournament(existing.tournament || null);
           setShowWelcome(false);
@@ -155,6 +158,7 @@ export default function Page() {
       gameMode,
       tournamentFormat,
       matchType,
+      address,
       matches,
       tournament: tournament || undefined
     };
@@ -166,7 +170,7 @@ export default function Page() {
     if (typeof window !== "undefined") {
       localStorage.setItem(LAST_SESSION_KEY, sessionCode);
     }
-  }, [sessionCode, players, pairs, split, gameMode, tournamentFormat, matchType, matches, tournament]);
+  }, [sessionCode, players, pairs, split, gameMode, tournamentFormat, matchType, address, matches, tournament]);
 
   const computedSplit = useMemo(() => {
     if (split) return split;
@@ -237,7 +241,7 @@ export default function Page() {
     setShowModeSelector(true);
   };
 
-  const handleModeSelect = (mode: GameMode, format?: TournamentFormat, type?: MatchType) => {
+  const handleModeSelect = (mode: GameMode, format?: TournamentFormat, type?: MatchType, sessionAddress?: string) => {
     // Clear old session data from localStorage
     const oldSession = typeof window !== "undefined" ? localStorage.getItem(LAST_SESSION_KEY) : null;
     if (oldSession) {
@@ -263,6 +267,7 @@ export default function Page() {
     setGameMode(mode);
     setTournamentFormat(format);
     setMatchType(type);
+    setAddress(sessionAddress);
     setShowModeSelector(false);
     setShowWelcome(false);
   };
@@ -283,6 +288,7 @@ export default function Page() {
       setGameMode(localSession.gameMode || "team");
       setTournamentFormat(localSession.tournamentFormat);
       setMatchType(localSession.matchType);
+      setAddress(localSession.address);
       setMatches(localSession.matches || []);
       setTournament(localSession.tournament || null);
       foundSession = true;
@@ -298,6 +304,7 @@ export default function Page() {
       setGameMode(existing.gameMode || "team");
       setTournamentFormat(existing.tournamentFormat);
       setMatchType(existing.matchType);
+      setAddress(existing.address);
       setMatches(existing.matches || []);
       setTournament(existing.tournament || null);
       foundSession = true;
@@ -469,6 +476,14 @@ export default function Page() {
                 )}
               </span>
             </div>
+            {address && (
+              <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 13, color: "#64748b" }}>📍</span>
+                <span style={{ fontSize: 14, color: "#64748b" }}>
+                  <strong>Địa điểm:</strong> {address}
+                </span>
+              </div>
+            )}
           </div>
           <div className="header-actions">
             <input

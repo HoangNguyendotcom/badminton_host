@@ -23,6 +23,7 @@ export interface SessionData {
   matchType?: MatchType;
   matches?: Match[];
   tournament?: TournamentData;
+  address?: string;
 }
 
 export interface TeamStats {

@@ -1,7 +1,8 @@
+import { useState } from "react";
 import type { GameMode, TournamentFormat, MatchType } from "@/types";
 
 interface Props {
-  onSelect: (mode: GameMode, tournamentFormat?: TournamentFormat, matchType?: MatchType) => void;
+  onSelect: (mode: GameMode, tournamentFormat?: TournamentFormat, matchType?: MatchType, address?: string) => void;
   onCancel: () => void;
 }
 
@@ -50,19 +51,19 @@ const matchTypes: { value: MatchType; label: string }[] = [
   { value: "WD", label: "Đôi Nữ" }
 ];
 
-import { useState } from "react";
-
 export function ModeSelector({ onSelect, onCancel }: Props) {
   const [selectedMode, setSelectedMode] = useState<GameMode | null>(null);
   const [tournamentFormat, setTournamentFormat] = useState<TournamentFormat>("round_robin");
   const [matchType, setMatchType] = useState<MatchType>("MD");
+  const [address, setAddress] = useState<string>("");
 
   const handleConfirm = () => {
     if (!selectedMode) return;
+    const addressValue = address.trim() || undefined;
     if (selectedMode === "tournament") {
-      onSelect(selectedMode, tournamentFormat, matchType);
+      onSelect(selectedMode, tournamentFormat, matchType, addressValue);
     } else {
-      onSelect(selectedMode);
+      onSelect(selectedMode, undefined, undefined, addressValue);
     }
   };
 
@@ -93,6 +94,41 @@ export function ModeSelector({ onSelect, onCancel }: Props) {
         }}
       >
         <h2 style={{ margin: "0 0 20px 0" }}>Chọn chế độ chơi</h2>
+
+        <div style={{ marginBottom: 20 }}>
+          <label
+            style={{
+              display: "block",
+              marginBottom: 8,
+              fontSize: 14,
+              fontWeight: 500,
+              color: "#374151"
+            }}
+          >
+            Địa điểm
+          </label>
+          <input
+            type="text"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="Nhập địa chỉ hoặc tên sân..."
+            style={{
+              width: "100%",
+              padding: "10px 12px",
+              borderRadius: 8,
+              border: "1px solid #e2e8f0",
+              fontSize: 14,
+              outline: "none",
+              transition: "border-color 0.2s"
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = "#3b82f6";
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = "#e2e8f0";
+            }}
+          />
+        </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {modes.map((mode) => (

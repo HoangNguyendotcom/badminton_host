@@ -90,6 +90,7 @@ async function loadSessionFromSupabase(code: string): Promise<SessionData | null
     gameMode: sessionWithPlayers.game_mode,
     tournamentFormat: sessionWithPlayers.tournament_format || undefined,
     matchType: sessionWithPlayers.match_type_default || undefined,
+    address: sessionWithPlayers.address || undefined,
   };
 }
 
@@ -97,13 +98,15 @@ async function createSessionInSupabase(
   code: string,
   gameMode: GameMode,
   tournamentFormat?: TournamentFormat,
-  matchType?: MatchType
+  matchType?: MatchType,
+  address?: string
 ): Promise<string | null> {
   const session = await db.createSession({
     code,
     gameMode,
     tournamentFormat,
     matchType,
+    address,
   });
   return session?.id || null;
 }
@@ -227,7 +230,8 @@ export async function saveSession(data: SessionData): Promise<void> {
           data.sessionCode,
           data.gameMode,
           data.tournamentFormat,
-          data.matchType
+          data.matchType,
+          data.address
         );
 
         if (sessionId) {
@@ -289,7 +293,8 @@ export async function createNewSession(
   code: string,
   gameMode: GameMode,
   tournamentFormat?: TournamentFormat,
-  matchType?: MatchType
+  matchType?: MatchType,
+  address?: string
 ): Promise<SessionData> {
   const sessionData: SessionData = {
     sessionCode: code,
@@ -297,8 +302,11 @@ export async function createNewSession(
     gameMode,
     tournamentFormat,
     matchType,
+    address,
   };
 
   await saveSession(sessionData);
   return sessionData;
 }
+
+
