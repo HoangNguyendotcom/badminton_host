@@ -27,7 +27,7 @@ import {
 } from "@/lib/sessionStore";
 import { splitTeams } from "@/lib/teamSplitter";
 import { recordTournamentMatchResult, isDoublesType } from "@/lib/tournament";
-import type { Player, SplitResult, GameMode, TournamentFormat, MatchType, Match, MatchPlayer, TournamentData, TournamentMatch, TournamentPair } from "@/types";
+import type { Player, SplitResult, GameMode, TournamentFormat, MatchType, Match, MatchPlayer, MatchSide, TournamentData, TournamentMatch, TournamentPair } from "@/types";
 
 const LAST_SESSION_KEY = "badminton-last-session";
 
@@ -414,7 +414,8 @@ export default function Page() {
 
   const handleSaveMatchScore = (matchId: string, scoreA: number, scoreB: number) => {
     // Update match with score and winner (points will be recalculated automatically)
-    const winnerSide = scoreA > scoreB ? "a" : scoreB > scoreA ? "b" : null;
+    const winnerSide: MatchSide | null =
+      scoreA > scoreB ? "a" : scoreB > scoreA ? "b" : null;
 
     setMatches((prev) => {
       const updated = prev.map((m) =>
