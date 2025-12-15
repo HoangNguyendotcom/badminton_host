@@ -7,6 +7,7 @@ export type MatchStatus = "pending" | "in_progress" | "completed";
 export type MatchSide = "a" | "b";
 
 export interface CreateMatchInput {
+  id?: string;
   sessionId: string;
   matchType: MatchType;
   playerIds: { playerId: string; side: MatchSide }[];
@@ -40,6 +41,7 @@ export async function createMatch(input: CreateMatchInput): Promise<DbMatch | nu
   const { data: match, error: matchError } = await supabase
     .from("matches")
     .insert({
+      id: input.id,
       session_id: input.sessionId,
       match_type: input.matchType,
       status: "pending" as const,

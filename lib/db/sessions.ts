@@ -83,7 +83,8 @@ export async function getSessionWithPlayers(code: string): Promise<SessionWithPl
         name,
         gender,
         skill_level,
-        is_active
+        is_active,
+        team
       )
     `)
     .eq("code", code.toUpperCase())
@@ -107,6 +108,7 @@ export async function updateSession(
     tournamentFormat: TournamentFormat | null;
     matchType: MatchType | null;
     skillDiffThreshold: number;
+    address: string | null;
   }>
 ): Promise<DbSession | null> {
   const supabase = getSupabase();
@@ -117,11 +119,13 @@ export async function updateSession(
     tournament_format?: TournamentFormat | null;
     match_type_default?: MatchType | null;
     skill_diff_threshold?: number;
+    address?: string | null;
   } = {};
   if (updates.gameMode !== undefined) dbUpdates.game_mode = updates.gameMode;
   if (updates.tournamentFormat !== undefined) dbUpdates.tournament_format = updates.tournamentFormat;
   if (updates.matchType !== undefined) dbUpdates.match_type_default = updates.matchType;
   if (updates.skillDiffThreshold !== undefined) dbUpdates.skill_diff_threshold = updates.skillDiffThreshold;
+  if (updates.address !== undefined) dbUpdates.address = updates.address;
 
   const { data, error } = await supabase
     .from("sessions")

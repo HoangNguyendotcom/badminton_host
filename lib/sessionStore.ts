@@ -1,4 +1,4 @@
-import type { SessionData, Player, Match, MatchPlayer, GameMode, TournamentFormat, MatchType } from "@/types";
+import type { SessionData, Player, Match, MatchPlayer, GameMode, TournamentFormat, MatchType, TournamentPair } from "@/types";
 import { isSupabaseConfigured } from "./supabase";
 import * as db from "./db";
 
@@ -45,7 +45,7 @@ async function loadSessionFromSupabase(code: string): Promise<SessionData | null
     name: p.name,
     gender: p.gender,
     skillLevel: p.skill_level,
-    team: null, // Team assignments are not stored in DB yet
+    team: p.team || null,
     isActive: p.is_active,
   }));
 
@@ -83,9 +83,39 @@ async function loadSessionFromSupabase(code: string): Promise<SessionData | null
     };
   });
 
+  // Load pairs from Supabase
+  const dbPairs = await db.getPairsBySession(sessionWithPlayers.id);
+  const pairs: TournamentPair[] = dbPairs.map((p) => {
+    // Find player data from the players array we already loaded
+    const player1Data = players.find((pl) => pl.id === p.player_one_id);
+    const player2Data = players.find((pl) => pl.id === p.player_two_id);
+    
+    if (!player1Data || !player2Data) {
+      // If player data not found, skip this pair
+      return null;
+    }
+
+    return {
+      id: p.id,
+      player1: {
+        id: player1Data.id,
+        name: player1Data.name,
+        gender: player1Data.gender,
+        skillLevel: player1Data.skillLevel,
+      },
+      player2: {
+        id: player2Data.id,
+        name: player2Data.name,
+        gender: player2Data.gender,
+        skillLevel: player2Data.skillLevel,
+      },
+    };
+  }).filter((p): p is TournamentPair => p !== null);
+
   return {
     sessionCode: sessionWithPlayers.code,
     players,
+    pairs: pairs.length > 0 ? pairs : undefined,
     matches,
     gameMode: sessionWithPlayers.game_mode,
     tournamentFormat: sessionWithPlayers.tournament_format || undefined,
@@ -125,11 +155,13 @@ async function syncPlayersToSupabase(sessionId: string, players: Player[]): Prom
   // Add new players
   for (const player of toAdd) {
     await db.createPlayer({
+      id: player.id,
       sessionId,
       name: player.name,
       gender: player.gender,
       skillLevel: player.skillLevel,
       isActive: player.isActive,
+      team: player.team || null,
     });
   }
 
@@ -140,6 +172,7 @@ async function syncPlayersToSupabase(sessionId: string, players: Player[]): Prom
       gender: player.gender,
       skillLevel: player.skillLevel,
       isActive: player.isActive,
+      team: player.team || null,
     });
   }
 
@@ -163,6 +196,7 @@ async function syncMatchesToSupabase(sessionId: string, matches: Match[]): Promi
   // Add new matches
   for (const match of toAdd) {
     await db.createMatch({
+      id: match.id,
       sessionId,
       matchType: match.matchType,
       playerIds: [
@@ -182,6 +216,49 @@ async function syncMatchesToSupabase(sessionId: string, matches: Match[]): Promi
   // Delete removed matches
   for (const match of toDelete) {
     await db.deleteMatch(match.id);
+  }
+}
+
+/**
+ * Save only matches (scores, status) to Supabase for an existing session.
+ * Does NOT touch players, pairs or localStorage.
+ */
+export async function saveMatchesOnly(sessionCode: string, matches: Match[]): Promise<void> {
+  if (!isSupabaseConfigured) return;
+
+  try {
+    const existingSession = await db.getSessionByCode(sessionCode);
+    if (!existingSession) return;
+
+    await syncMatchesToSupabase(existingSession.id, matches);
+  } catch (error) {
+    console.error("Error syncing matches to Supabase:", error);
+  }
+}
+
+async function syncPairsToSupabase(sessionId: string, pairs: TournamentPair[]): Promise<void> {
+  // Get existing pairs from Supabase
+  const existingPairs = await db.getPairsBySession(sessionId);
+  const existingIds = new Set(existingPairs.map((p) => p.id));
+  const currentIds = new Set(pairs.map((p) => p.id));
+
+  // Find pairs to add, update, and delete
+  const toAdd = pairs.filter((p) => !existingIds.has(p.id));
+  const toDelete = existingPairs.filter((p) => !currentIds.has(p.id));
+
+  // Add new pairs
+  for (const pair of toAdd) {
+    await db.createTournamentPair({
+      sessionId,
+      playerOneId: pair.player1.id,
+      playerTwoId: pair.player2.id,
+      totalSkill: pair.player1.skillLevel + pair.player2.skillLevel,
+    });
+  }
+
+  // Delete removed pairs
+  for (const pair of toDelete) {
+    await db.deleteTournamentPair(pair.id);
   }
 }
 
@@ -207,10 +284,38 @@ export function loadSessionSync(code: string): SessionData | null {
 }
 
 /**
+ * Cleanup old sessions from localStorage, keeping only the active session
+ */
+function cleanupOldSessions(activeSessionCode: string): void {
+  if (typeof window === "undefined") return;
+  
+  // Get all localStorage keys with our prefix
+  const keys: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith(STORAGE_KEY_PREFIX)) {
+      keys.push(key);
+    }
+  }
+
+  // Remove all sessions except the active one
+  for (const key of keys) {
+    const sessionCode = key.replace(STORAGE_KEY_PREFIX, "");
+    if (sessionCode !== activeSessionCode) {
+      localStorage.removeItem(key);
+    }
+  }
+}
+
+/**
  * Save session data - saves to both Supabase and localStorage
+ * LocalStorage only keeps the active session for performance
  */
 export async function saveSession(data: SessionData): Promise<void> {
-  // Always save to localStorage for fast access
+  // Cleanup old sessions, keep only active one
+  cleanupOldSessions(data.sessionCode);
+  
+  // Save active session to localStorage for fast access
   saveSessionToLocal(data);
 
   // If Supabase is configured, sync there too
@@ -220,10 +325,21 @@ export async function saveSession(data: SessionData): Promise<void> {
       const existingSession = await db.getSessionByCode(data.sessionCode);
 
       if (existingSession) {
+        // Update session address if changed
+        if (existingSession.address !== (data.address || null)) {
+          await db.updateSession(existingSession.id, {
+            address: data.address || null,
+          });
+        }
+
         // Sync players
         await syncPlayersToSupabase(existingSession.id, data.players);
         // Sync matches
         await syncMatchesToSupabase(existingSession.id, data.matches || []);
+        // Sync pairs
+        if (data.pairs) {
+          await syncPairsToSupabase(existingSession.id, data.pairs);
+        }
       } else {
         // Create new session
         const sessionId = await createSessionInSupabase(
@@ -239,17 +355,23 @@ export async function saveSession(data: SessionData): Promise<void> {
           if (data.players.length > 0) {
             await db.createPlayers(
               data.players.map((p) => ({
+                id: p.id,
                 sessionId,
                 name: p.name,
                 gender: p.gender,
                 skillLevel: p.skillLevel,
                 isActive: p.isActive,
+                team: p.team || null,
               }))
             );
           }
           // Add all matches
           if (data.matches && data.matches.length > 0) {
             await syncMatchesToSupabase(sessionId, data.matches);
+          }
+          // Add all pairs
+          if (data.pairs && data.pairs.length > 0) {
+            await syncPairsToSupabase(sessionId, data.pairs);
           }
         }
       }
@@ -284,6 +406,23 @@ export async function sessionExists(code: string): Promise<boolean> {
     if (session) return true;
   }
   return loadSessionFromLocal(code) !== null;
+}
+
+/**
+ * Generate a session code that does not already exist in Supabase or localStorage
+ */
+export async function generateUniqueSessionCode(): Promise<string> {
+  // Try a reasonable number of times to avoid an infinite loop
+  for (let i = 0; i < 20; i += 1) {
+    const code = generateSessionCode();
+    // sessionExists checks both Supabase (if configured) and localStorage
+    // eslint-disable-next-line no-await-in-loop
+    const exists = await sessionExists(code);
+    if (!exists) {
+      return code;
+    }
+  }
+  throw new Error("Unable to generate a unique session code after multiple attempts");
 }
 
 /**

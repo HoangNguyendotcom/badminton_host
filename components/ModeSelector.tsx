@@ -2,7 +2,12 @@ import { useState } from "react";
 import type { GameMode, TournamentFormat, MatchType } from "@/types";
 
 interface Props {
-  onSelect: (mode: GameMode, tournamentFormat?: TournamentFormat, matchType?: MatchType, address?: string) => void;
+  onSelect: (
+    mode: GameMode,
+    tournamentFormat?: TournamentFormat,
+    matchType?: MatchType,
+    address?: string
+  ) => void | Promise<void>;
   onCancel: () => void;
 }
 

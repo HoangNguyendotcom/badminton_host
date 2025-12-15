@@ -15,7 +15,16 @@ import { TournamentSetup } from "@/components/TournamentSetup";
 import { TournamentBracket } from "@/components/TournamentBracket";
 import { TournamentStandings } from "@/components/TournamentStandings";
 import { TournamentScoreModal } from "@/components/TournamentScoreModal";
-import { generateSessionCode, loadSession, saveSession, loadSessionSync, saveSessionSync, clearSessionData } from "@/lib/sessionStore";
+import {
+  generateSessionCode,
+  generateUniqueSessionCode,
+  loadSession,
+  saveSession,
+  saveMatchesOnly,
+  loadSessionSync,
+  saveSessionSync,
+  clearSessionData
+} from "@/lib/sessionStore";
 import { splitTeams } from "@/lib/teamSplitter";
 import { recordTournamentMatchResult, isDoublesType } from "@/lib/tournament";
 import type { Player, SplitResult, GameMode, TournamentFormat, MatchType, Match, MatchPlayer, TournamentData, TournamentMatch, TournamentPair } from "@/types";
@@ -54,7 +63,7 @@ function buildViewFromPlayers(players: Player[], teamCount: number): ViewSplit {
 }
 
 export default function Page() {
-  const [sessionCode, setSessionCode] = useState<string>(generateSessionCode());
+  const [sessionCode, setSessionCode] = useState<string>("");
   const [inputSession, setInputSession] = useState<string>("");
   const [players, setPlayers] = useState<Player[]>([]);
   const [split, setSplit] = useState<SplitResult | null>(null);
@@ -238,10 +247,17 @@ export default function Page() {
   };
 
   const handleNewSession = () => {
+    // Clear input session to ensure new code is generated when creating a new session
+    setInputSession("");
     setShowModeSelector(true);
   };
 
-  const handleModeSelect = (mode: GameMode, format?: TournamentFormat, type?: MatchType, sessionAddress?: string) => {
+  const handleModeSelect = async (
+    mode: GameMode,
+    format?: TournamentFormat,
+    type?: MatchType,
+    sessionAddress?: string
+  ) => {
     // Clear old session data from localStorage
     const oldSession = typeof window !== "undefined" ? localStorage.getItem(LAST_SESSION_KEY) : null;
     if (oldSession) {
@@ -249,8 +265,8 @@ export default function Page() {
       localStorage.removeItem(LAST_SESSION_KEY);
     }
 
-    // Generate new session code (or use inputSession if joining)
-    const code = inputSession.length === 6 ? inputSession : generateSessionCode();
+    // Always generate a unique session code when creating a new session (not joining)
+    const code = await generateUniqueSessionCode();
 
     // Set active session in sessionStorage (survives refresh, cleared on window close)
     if (typeof window !== "undefined") {
@@ -317,9 +333,10 @@ export default function Page() {
       }
       setShowWelcome(false);
     } else {
-      // No session found anywhere - show mode selector for new session
-      setInputSession(trimmed);
-      setShowModeSelector(true);
+      // No session found anywhere - keep welcome screen and show an error instead of creating a new session
+      if (typeof window !== "undefined") {
+        alert("Không tìm thấy session với mã này. Vui lòng kiểm tra lại mã session.");
+      }
     }
   };
 
@@ -398,8 +415,9 @@ export default function Page() {
   const handleSaveMatchScore = (matchId: string, scoreA: number, scoreB: number) => {
     // Update match with score and winner (points will be recalculated automatically)
     const winnerSide = scoreA > scoreB ? "a" : scoreB > scoreA ? "b" : null;
-    setMatches((prev) =>
-      prev.map((m) =>
+
+    setMatches((prev) => {
+      const updated = prev.map((m) =>
         m.id === matchId
           ? {
               ...m,
@@ -410,8 +428,15 @@ export default function Page() {
               playedAt: new Date().toISOString(),
             }
           : m
-      )
-    );
+      );
+
+      // Optimized: only sync matches to Supabase (no players/pairs) for score updates
+      if (sessionCode) {
+        void saveMatchesOnly(sessionCode, updated);
+      }
+
+      return updated;
+    });
 
     setSelectedMatch(null);
   };

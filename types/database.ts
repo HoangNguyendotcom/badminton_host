@@ -20,6 +20,7 @@ export interface DbPlayer {
   gender: Gender;
   skill_level: number;
   is_active: boolean;
+  team: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -119,6 +120,7 @@ export type Database = {
           gender: Gender;
           skill_level: number;
           is_active?: boolean;
+          team?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -129,6 +131,7 @@ export type Database = {
           gender?: Gender;
           skill_level?: number;
           is_active?: boolean;
+          team?: string | null;
           updated_at?: string;
         };
         Relationships: [

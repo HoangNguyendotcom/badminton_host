@@ -4,11 +4,13 @@ import type { Gender } from "@/types";
 import type { DbPlayer } from "@/types/database";
 
 export interface CreatePlayerInput {
+  id?: string;
   sessionId: string;
   name: string;
   gender: Gender;
   skillLevel: number;
   isActive?: boolean;
+  team?: string | null;
 }
 
 export interface UpdatePlayerInput {
@@ -16,6 +18,7 @@ export interface UpdatePlayerInput {
   gender?: Gender;
   skillLevel?: number;
   isActive?: boolean;
+  team?: string | null;
 }
 
 // Create a new player
@@ -26,11 +29,13 @@ export async function createPlayer(input: CreatePlayerInput): Promise<DbPlayer |
   const { data, error } = await supabase
     .from("players")
     .insert({
+      id: input.id,
       session_id: input.sessionId,
       name: input.name,
       gender: input.gender,
       skill_level: Math.min(10, Math.max(1, input.skillLevel)),
       is_active: input.isActive ?? true,
+      team: input.team || null,
     })
     .select()
     .single();
@@ -93,11 +98,13 @@ export async function updatePlayer(id: string, updates: UpdatePlayerInput): Prom
     gender?: Gender;
     skill_level?: number;
     is_active?: boolean;
+    team?: string | null;
   } = {};
   if (updates.name !== undefined) dbUpdates.name = updates.name;
   if (updates.gender !== undefined) dbUpdates.gender = updates.gender;
   if (updates.skillLevel !== undefined) dbUpdates.skill_level = Math.min(10, Math.max(1, updates.skillLevel));
   if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
+  if (updates.team !== undefined) dbUpdates.team = updates.team;
 
   const { data, error } = await supabase
     .from("players")
@@ -141,11 +148,13 @@ export async function createPlayers(inputs: CreatePlayerInput[]): Promise<DbPlay
     .from("players")
     .insert(
       inputs.map((input) => ({
+        id: input.id,
         session_id: input.sessionId,
         name: input.name,
         gender: input.gender,
         skill_level: Math.min(10, Math.max(1, input.skillLevel)),
         is_active: input.isActive ?? true,
+        team: input.team || null,
       }))
     )
     .select();

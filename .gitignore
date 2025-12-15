@@ -25,6 +25,7 @@ yarn-error.log*
 # Local env files
 .env*.local
 .env
+.env.local
 
 # Vercel
 .vercel
@@ -39,6 +40,10 @@ next-env.d.ts
 *.swp
 *.swo
 *~
+
+# Scripts and Supabase migrations
+scripts/
+supabase/
 
 
 
