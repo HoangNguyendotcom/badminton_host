@@ -19,6 +19,7 @@ export interface SessionWithPlayers extends DbSession {
     gender: "male" | "female";
     skill_level: number;
     is_active: boolean;
+    team: string | null;
   }[];
 }
 
