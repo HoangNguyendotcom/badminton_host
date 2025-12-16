@@ -127,3 +127,4 @@ Mở Browser Console (F12) và kiểm tra:
 - Tất cả dữ liệu được sync lên Supabase theo mã session
 - Chỉ session active được giữ trong localStorage, các session cũ được cleanup
 
+

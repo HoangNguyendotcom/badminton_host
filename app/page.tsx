@@ -112,6 +112,34 @@ export default function Page() {
     return points;
   }, [gameMode, matches, players]);
 
+  // Player match statistics - count completed matches with wins/losses
+  const playerMatchStats = useMemo(() => {
+    const stats: Record<string, { played: number; won: number; lost: number }> = {};
+
+    const completedMatches = matches.filter(m => m.status === "completed");
+
+    completedMatches.forEach(match => {
+      const teamAIds = match.teamA.map(p => p.id);
+      const teamBIds = match.teamB.map(p => p.id);
+
+      [...teamAIds, ...teamBIds].forEach(playerId => {
+        if (!stats[playerId]) {
+          stats[playerId] = { played: 0, won: 0, lost: 0 };
+        }
+        stats[playerId].played++;
+
+        const isTeamA = teamAIds.includes(playerId);
+        if ((match.winner === "a" && isTeamA) || (match.winner === "b" && !isTeamA)) {
+          stats[playerId].won++;
+        } else {
+          stats[playerId].lost++;
+        }
+      });
+    });
+
+    return stats;
+  }, [matches]);
+
   // Load session on refresh (check sessionStorage for active session)
   useEffect(() => {
     const loadActiveSession = async () => {
@@ -706,6 +734,7 @@ export default function Page() {
       ) : (
         <PlayerList
           players={players}
+          matchStats={playerMatchStats}
           moveOptions={computedSplit.teams.map((t) => t.name)}
           onAssign={handleMovePlayer}
           onToggleActive={handleToggleActive}

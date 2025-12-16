@@ -3,6 +3,7 @@ import type { Player } from "@/types";
 
 interface Props {
   players: Player[];
+  matchStats: Record<string, { played: number; won: number; lost: number }>;
   moveOptions: string[];
   onAssign: (id: string, target: string | null) => void;
   onToggleActive: (id: string) => void;
@@ -10,7 +11,7 @@ interface Props {
   onRemove: (id: string) => void;
 }
 
-export function PlayerList({ players, moveOptions, onAssign, onToggleActive, onEdit, onRemove }: Props) {
+export function PlayerList({ players, matchStats, moveOptions, onAssign, onToggleActive, onEdit, onRemove }: Props) {
   const [confirmDelete, setConfirmDelete] = useState<Player | null>(null);
 
   if (!players.length) {
@@ -35,6 +36,7 @@ export function PlayerList({ players, moveOptions, onAssign, onToggleActive, onE
               <th>Trình độ</th>
               <th>Trạng thái</th>
               <th>Đội</th>
+              <th>Số trận</th>
               <th>Edit</th>
             </tr>
           </thead>
@@ -49,6 +51,13 @@ export function PlayerList({ players, moveOptions, onAssign, onToggleActive, onE
                 </td>
                 <td>
                   <span className="muted">{p.team ? `${p.team}` : "Đang chờ"}</span>
+                </td>
+                <td>
+                  {(() => {
+                    const stats = matchStats[p.id];
+                    if (!stats || stats.played === 0) return <span className="muted">0</span>;
+                    return `${stats.played} (${stats.won}W/${stats.lost}L)`;
+                  })()}
                 </td>
                 <td>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
