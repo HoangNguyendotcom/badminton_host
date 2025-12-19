@@ -110,13 +110,13 @@ export function ModeSelector({ onSelect, onCancel }: Props) {
               color: "#374151"
             }}
           >
-            Địa điểm
+            Địa điểm:
           </label>
           <input
             type="text"
             value={address}
             onChange={(e) => setAddress(e.target.value)}
-            placeholder="Nhập địa chỉ hoặc tên sân..."
+            placeholder="Nhập địa chỉ, tên sân hoặc để trống....  "
             style={{
               width: "100%",
               padding: "10px 12px",
@@ -247,7 +247,7 @@ export function ModeSelector({ onSelect, onCancel }: Props) {
               cursor: selectedMode ? "pointer" : "not-allowed"
             }}
           >
-            Tạo phiên
+            Tạo mới
           </button>
         </div>
       </div>

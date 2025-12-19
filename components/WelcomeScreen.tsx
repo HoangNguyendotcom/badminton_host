@@ -139,7 +139,7 @@ export function WelcomeScreen({ onJoinSession, onCreateNew }: Props) {
               cursor: "pointer",
             }}
           >
-            Tạo mã mới
+            Tạo mới
           </button>
         </div>
       </div>
